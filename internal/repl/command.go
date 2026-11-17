@@ -8,12 +8,12 @@ import (
 	"slices"
 )
 
-var ErrExit = errors.New("Exit")
+var errExit = errors.New("Exit")
 
 type cliCommand struct {
 	name        string
 	description string
-	callback    func() error
+	callback    func(args []string) error
 }
 
 func getCommands() map[string]cliCommand {
@@ -51,17 +51,22 @@ func getCommands() map[string]cliCommand {
 	}
 }
 
-func commandHelp() error {
+func commandHelp(args []string) error {
 	fmt.Println("Grimhold — a dungeon crawler \n \n Commands:")
 	cmds := getCommands()
-	for err, name := range slices.Sorted(maps.Keys(cmds)){
+	for _, name := range slices.Sorted(maps.Keys(cmds)) {
 		fmt.Printf("%s     %s \n", name, cmds[name].description)
 	}
 	return nil
 }
 
-func commandMap() error {}
-func commandTravel() error {}
-func commandLook() error {}
-func commandExplore() error {}
-func commandExit() error { return ErrExit }
+func commandMap(args []string) error { return nil }
+func commandTravel(args []string) error {
+	if len(args) != 1 {
+		return errors.New("usage: travel <region>")
+	}
+	return nil
+}
+func commandLook(args []string) error    { return nil }
+func commandExplore(args []string) error { return nil }
+func commandExit(args []string) error    { return errExit }
