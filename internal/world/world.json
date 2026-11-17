@@ -1,0 +1,61 @@
+{
+  "start": "crossroads",
+  "regions": [
+    {
+      "id": "crossroads",
+      "name": "The Crossroads",
+      "description": "A leaning gallows marks where four mud roads meet. Crows watch from the beam, patient as debt collectors.",
+      "danger": 1,
+      "foes": ["giant-rat", "kobold", "bandit"],
+      "exits": ["ashen-marsh", "whispering-woods", "bone-quarry"]
+    },
+    {
+      "id": "ashen-marsh",
+      "name": "Ashen Marsh",
+      "description": "Fog, iron, and things that breathe under the water.",
+      "danger": 1,
+      "foes": ["goblin", "skeleton", "ghoul"],
+      "exits": ["crossroads", "drowned-chapel"]
+    },
+    {
+      "id": "whispering-woods",
+      "name": "Whispering Woods",
+      "description": "Black pines crowd the path. The wind speaks your name, then laughs at it.",
+      "danger": 2,
+      "foes": ["wolf", "giant-spider", "will-o-wisp", "gnoll"],
+      "exits": ["crossroads", "hollow-keep"]
+    },
+    {
+      "id": "bone-quarry",
+      "name": "Bone Quarry",
+      "description": "White dust coats everything. The stone here was never stone — it was cut from something that once had a heartbeat.",
+      "danger": 2,
+      "foes": ["skeleton", "zombie", "hobgoblin", "ghast"],
+      "exits": ["crossroads", "hollow-keep"]
+    },
+    {
+      "id": "drowned-chapel",
+      "name": "Drowned Chapel",
+      "description": "Pews float in knee-deep black water. The bell still tolls at midnight, though no rope remains.",
+      "danger": 3,
+      "foes": ["ghoul", "specter", "lizardfolk", "wight"],
+      "exits": ["ashen-marsh", "cinder-crypt"]
+    },
+    {
+      "id": "hollow-keep",
+      "name": "Hollow Keep",
+      "description": "A fortress gutted from the inside. Banners of a forgotten house rot on the walls; something heavy paces the upper floor.",
+      "danger": 3,
+      "foes": ["orc", "bugbear", "ogre", "wight"],
+      "exits": ["whispering-woods", "bone-quarry", "cinder-crypt"]
+    },
+    {
+      "id": "cinder-crypt",
+      "name": "Cinder Crypt",
+      "description": "The air burns your lungs. Ash falls upward here, and the dead do not stay in their alcoves.",
+      "danger": 4,
+      "foes": ["wraith", "mummy", "vampire-spawn", "troll"],
+      "exits": ["drowned-chapel", "hollow-keep"]
+    }
+  ]
+}
