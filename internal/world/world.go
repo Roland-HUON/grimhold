@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 )
 
-type region struct {
+type Region struct {
 	Id          string      `json:"id"`
 	Name        string   `json:"name"`
 	Description string   `json:"description"`
@@ -15,13 +15,13 @@ type region struct {
 	Exits       []string `json:"exists"`
 }
 
-type world struct {
+type World struct {
 	Start   string   `json:"start"`
-	Regions []region `json:"regions"`
+	Regions []Region `json:"regions"`
 }
 
-func createWorld(path string) (world, error) {
-	var configWorld world
+func CreateWorld(path string) (World, error) {
+	var configWorld World
 	newWorld, err := os.ReadFile(path)
 	
 	if err != nil {
@@ -37,8 +37,8 @@ func createWorld(path string) (world, error) {
 	return configWorld, nil
 }
 
-func findRegionById(path string) (map[string]region, error) {
-	var listRegion []region
+func FindRegionById(path string) (map[string]Region, error) {
+	var listRegion []Region
 	newWorld, err := os.ReadFile(path)
 	if err != nil {
 		fmt.Println("Issues with the file: %w", err)
@@ -50,7 +50,7 @@ func findRegionById(path string) (map[string]region, error) {
 		return nil, err
 	}
 
-	indexRegion := make(map[string]region, len(listRegion))
+	indexRegion := make(map[string]Region, len(listRegion))
 	for _, regions := range listRegion {
 		indexRegion[regions.Id] = regions
 	}
