@@ -31,7 +31,7 @@ func Start() error {
 			fmt.Printf("Unknown command %q. Type 'help' for any help.\n", args[0])
 			continue
 		}
-		if err := cmd.callback(args[1:]); err != nil {
+		if err := cmd.Callback(args[1:]); err != nil {
 			if errors.Is(err, errExit) {
 				fmt.Println("Bye!")
 				return nil

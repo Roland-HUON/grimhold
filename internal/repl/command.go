@@ -11,42 +11,42 @@ import (
 var errExit = errors.New("Exit")
 
 type cliCommand struct {
-	name        string
-	description string
-	callback    func(args []string) error
+	Name        string
+	Description string
+	Callback    func(args []string) error
 }
 
 func getCommands() map[string]cliCommand {
 	return map[string]cliCommand{
 		"help": {
-			name:        "help",
-			description: "Show this message",
-			callback:    commandHelp,
+			Name:        "help",
+			Description: "Show this message",
+			Callback:    commandHelp,
 		},
 		"map": {
-			name:        "map",
-			description: "List the known regions",
-			callback:    commandMap,
+			Name:        "map",
+			Description: "List the known regions",
+			Callback:    commandMap,
 		},
 		"travel <region>": {
-			name:        "travel <region>",
-			description: "Travel to a connected region",
-			callback:    commandTravel,
+			Name:        "travel <region>",
+			Description: "Travel to a connected region",
+			Callback:    commandTravel,
 		},
 		"look": {
-			name:        "look",
-			description: "Describe your surroundings",
-			callback:    commandLook,
+			Name:        "look",
+			Description: "Describe your surroundings",
+			Callback:    commandLook,
 		},
 		"explore": {
-			name:        "explore",
-			description: "Wander the region (risk an encounter)",
-			callback:    commandExplore,
+			Name:        "explore",
+			Description: "Wander the region (risk an encounter)",
+			Callback:    commandExplore,
 		},
 		"exit": {
-			name:        "exit",
-			description: "You leave",
-			callback:    commandExit,
+			Name:        "exit",
+			Description: "You leave",
+			Callback:    commandExit,
 		},
 	}
 }
@@ -55,7 +55,7 @@ func commandHelp(args []string) error {
 	fmt.Println("Grimhold — a dungeon crawler \n \n Commands:")
 	cmds := getCommands()
 	for _, name := range slices.Sorted(maps.Keys(cmds)) {
-		fmt.Printf("%s     %s \n", name, cmds[name].description)
+		fmt.Printf("%s     %s \n", name, cmds[name].Description)
 	}
 	return nil
 }
