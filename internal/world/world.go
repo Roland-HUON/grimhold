@@ -41,13 +41,11 @@ func FindRegionById(path string) (map[string]Region, error) {
 	var listRegion []Region
 	newWorld, err := os.ReadFile(path)
 	if err != nil {
-		fmt.Println("Issues with the file: %w", err)
-		return nil, err
+		return nil, fmt.Errorf("Issues with the file: %w", err)
 	}
 
 	if err := json.Unmarshal(newWorld, &listRegion); err != nil {
-		fmt.Println("Error JSON format: %w", err)
-		return nil, err
+		return nil, fmt.Errorf("Error JSON format: %w", err)
 	}
 
 	indexRegion := make(map[string]Region, len(listRegion))
