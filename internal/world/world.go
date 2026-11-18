@@ -12,7 +12,7 @@ type Region struct {
 	Description string   `json:"description"`
 	Danger      int      `json:"danger"`
 	Foes        []string `json:"foes"`
-	Exits       []string `json:"exists"`
+	Exits       []string `json:"exits"`
 }
 
 type World struct {
