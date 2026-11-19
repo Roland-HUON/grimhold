@@ -1,13 +1,13 @@
 package world
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
-	"encoding/json"
 )
 
 type Region struct {
-	Id          string      `json:"id"`
+	ID          string   `json:"id"`
 	Name        string   `json:"name"`
 	Description string   `json:"description"`
 	Danger      int      `json:"danger"`
@@ -16,42 +16,44 @@ type Region struct {
 }
 
 type World struct {
-	Start   string   `json:"start"`
-	Regions []Region `json:"regions"`
+	Start       string            `json:"start"`
+	Regions     []Region          `json:"regions"`
+	IndexRegion map[string]Region `json:"-"`
 }
 
 func CreateWorld(path string) (World, error) {
 	var configWorld World
 	newWorld, err := os.ReadFile(path)
-	
+
 	if err != nil {
-		fmt.Println("Issues with the file: %w", err)
-		return configWorld, err
+		return configWorld, fmt.Errorf("issues with the file: %w", err)
 	}
 
 	if err := json.Unmarshal(newWorld, &configWorld); err != nil {
-		fmt.Println("Error JSON format: %w", err)
-		return configWorld, err
+		return configWorld, fmt.Errorf("error JSON format: %w", err)
+	}
+
+	configWorld.IndexRegion = make(map[string]Region, len(configWorld.Regions))
+	for _, region := range configWorld.Regions {
+		configWorld.IndexRegion[region.ID] = region
+	}
+
+	if _, ok := configWorld.IndexRegion[configWorld.Start]; !ok {
+		return configWorld, fmt.Errorf("error with the starting region : %q", configWorld.Start)
+	}
+
+	for _, region := range configWorld.Regions {
+		for _, exit := range region.Exits {
+			if _, ok := configWorld.IndexRegion[exit]; !ok {
+				return configWorld, fmt.Errorf("region %q exits to an unknown region %q", region.ID, exit)
+			}
+		}
 	}
 
 	return configWorld, nil
 }
 
-func FindRegionById(path string) (map[string]Region, error) {
-	var listRegion []Region
-	newWorld, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("Issues with the file: %w", err)
-	}
-
-	if err := json.Unmarshal(newWorld, &listRegion); err != nil {
-		return nil, fmt.Errorf("Error JSON format: %w", err)
-	}
-
-	indexRegion := make(map[string]Region, len(listRegion))
-	for _, regions := range listRegion {
-		indexRegion[regions.Id] = regions
-	}
-
-	return indexRegion, nil
+func FindRegionByID(world World, id string) (Region, bool) {
+	region, ok := world.IndexRegion[id]
+	return region, ok
 }

@@ -6,14 +6,21 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+
+	"github.com/Roland-HUON/grimhold/internal/world"
 )
 
-var errExit = errors.New("Exit")
+var errExit = errors.New("exit")
+
+type Config struct {
+	World           world.World
+	IDCurrentRegion string
+}
 
 type cliCommand struct {
 	Name        string
 	Description string
-	Callback    func(args []string) error
+	Callback    func(cfg *Config, args []string) error
 }
 
 func getCommands() map[string]cliCommand {
@@ -51,7 +58,7 @@ func getCommands() map[string]cliCommand {
 	}
 }
 
-func commandHelp(args []string) error {
+func commandHelp(cfg *Config, args []string) error {
 	fmt.Println("Grimhold — a dungeon crawler \n \n Commands:")
 	cmds := getCommands()
 	for _, name := range slices.Sorted(maps.Keys(cmds)) {
@@ -60,13 +67,13 @@ func commandHelp(args []string) error {
 	return nil
 }
 
-func commandMap(args []string) error { return nil }
-func commandTravel(args []string) error {
+func commandMap(cfg *Config, args []string) error { return nil }
+func commandTravel(cfg *Config, args []string) error {
 	if len(args) != 1 {
 		return errors.New("usage: travel <region>")
 	}
 	return nil
 }
-func commandLook(args []string) error    { return nil }
-func commandExplore(args []string) error { return nil }
-func commandExit(args []string) error    { return errExit }
+func commandLook(cfg *Config, args []string) error    { return nil }
+func commandExplore(cfg *Config, args []string) error { return nil }
+func commandExit(cfg *Config, args []string) error    { return errExit }
