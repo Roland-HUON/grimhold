@@ -17,7 +17,6 @@ func Start(cfg *Config) error {
 
 		if !scanner.Scan() {
 			fmt.Println("Bye!")
-			os.Exit(0)
 			return nil
 		}
 
