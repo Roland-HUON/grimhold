@@ -8,21 +8,30 @@ import (
 	"net/http"
 	"net/url"
 	"time"
+
+	"github.com/Roland-HUON/grimhold/internal/cache"
 )
 
 const baseURL = "https://api.open5e.com/v1/"
 
 type Client struct {
 	httpClient http.Client
+	cache      *cache.Cache
 }
 
-func NewClient(timeout time.Duration) *Client {
+func NewClient(timeout time.Duration, ttl time.Duration) *Client {
 	return &Client{
 		httpClient: http.Client{Timeout: timeout},
+		cache:      cache.NewCache(ttl),
 	}
 }
 
 func (c *Client) fetch(url string) ([]byte, error) {
+	cached, ok := c.cache.Get(url)
+	if ok {
+		return cached, nil
+	}
+
 	response, err := c.httpClient.Get(url)
 	if err != nil {
 		return nil, fmt.Errorf("requesting %s: %w", url, err)
@@ -41,6 +50,8 @@ func (c *Client) fetch(url string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("reading response: %w", err)
 	}
+
+	c.cache.Add(url, data)
 	return data, nil
 }
 
