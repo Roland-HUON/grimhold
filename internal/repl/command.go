@@ -59,6 +59,11 @@ func getCommands() map[string]cliCommand {
 			Description: "Travel to a connected region",
 			Callback:    commandTravel,
 		},
+		"fight": {
+			Name:        "fight",
+			Description: "Fight for your life",
+			Callback:    commandFight,
+		},
 		"look": {
 			Name:        "look",
 			Description: "Describe your surroundings",
@@ -242,6 +247,47 @@ func commandExplore(cfg *Config, args []string) error {
 	}
 	cfg.CurrentFoe = worstMonsterFind
 	fmt.Printf("A %s emerges from the shadow! (HP %d, Armor class %d)\nType 'fight' to attack or 'flee' to run.\n", cfg.CurrentFoe.Name, cfg.CurrentFoe.HP, cfg.CurrentFoe.ArmorClass)
+	return nil
+}
+
+func commandFight(cfg *Config, args []string) error {
+	if cfg.CurrentFoe == nil {
+		return errors.New("nothing to fight, try explore")
+	}
+
+	playerDamage, err := game.PlayerAttack(cfg.Player, cfg.CurrentFoe)
+	if err != nil {
+		return fmt.Errorf("player attack: %w", err)
+	}
+	if playerDamage.Hit {
+		fmt.Printf("You swing your %s (%d vs %d): hit for %d damage.\n", cfg.Player.Weapon.Name, playerDamage.Roll, cfg.CurrentFoe.ArmorClass, playerDamage.Damage)
+	} else {
+		fmt.Printf("You swing your %s (%d vs %d): miss.\n", cfg.Player.Weapon.Name, playerDamage.Roll, cfg.CurrentFoe.ArmorClass)
+	}
+	if cfg.CurrentFoe.HP <= 0 {
+		fmt.Printf("The %s falls!\n", cfg.CurrentFoe.Name)
+		cfg.CurrentFoe = nil
+		return nil
+	}
+
+	monsterDamage, err := game.MonsterAttack(cfg.CurrentFoe, cfg.Player)
+	if err != nil {
+		return fmt.Errorf("monster attack: %w", err)
+	}
+	if monsterDamage.ActionName == "" {
+		fmt.Printf("The %s hesitates and does nothing.\n", cfg.CurrentFoe.Name)
+	} else if monsterDamage.Hit {
+		fmt.Printf("%s uses %s (%d vs %d): hit for %d damage.\n", cfg.CurrentFoe.Name, monsterDamage.ActionName, monsterDamage.Roll, cfg.Player.ArmorClass, monsterDamage.Damage)
+	} else {
+		fmt.Printf("%s uses %s (%d vs %d): miss.\n", cfg.CurrentFoe.Name, monsterDamage.ActionName, monsterDamage.Roll, cfg.Player.ArmorClass)
+	}
+	if cfg.Player.HP <= 0 {
+		fmt.Println("You have been slain...")
+		cfg.CurrentFoe = nil
+		return nil
+	}
+
+	fmt.Printf("You: %d/%d HP | %s: %d HP\n", cfg.Player.HP, cfg.Player.MaxHP, cfg.CurrentFoe.Name, cfg.CurrentFoe.HP)
 	return nil
 }
 func commandExit(cfg *Config, args []string) error { return errExit }
