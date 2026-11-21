@@ -8,8 +8,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/Roland-HUON/grimhold/internal/world"
 	"github.com/Roland-HUON/grimhold/internal/open5e"
+	"github.com/Roland-HUON/grimhold/internal/world"
 )
 
 var errExit = errors.New("exit")
@@ -17,9 +17,9 @@ var errExit = errors.New("exit")
 type Config struct {
 	World           world.World
 	IDCurrentRegion string
-	Client open5e.Client
-	Prev string
-	Next string
+	Client          *open5e.Client
+	BestiaryPrevURL string
+	BestiaryNextURL string
 }
 
 type cliCommand struct {
@@ -39,6 +39,16 @@ func getCommands() map[string]cliCommand {
 			Name:        "map",
 			Description: "List the known regions",
 			Callback:    commandMap,
+		},
+		"bestiary": {
+			Name:        "bestiary [next|prev]",
+			Description: "Book of monsters",
+			Callback:    commandBestiary,
+		},
+		"inspect": {
+			Name:        "inspect <monster>",
+			Description: "Find information about a monster",
+			Callback:    commandInspect,
 		},
 		"travel": {
 			Name:        "travel <region>",
@@ -84,6 +94,72 @@ func commandMap(cfg *Config, args []string) error {
 	}
 	return nil
 }
+
+func commandBestiary(cfg *Config, args []string) error {
+	var pageURL string
+	switch {
+	case len(args) == 0:
+	case len(args) == 1 && args[0] == "next":
+		if cfg.BestiaryNextURL == "" {
+			return errors.New("no next page")
+		}
+		pageURL = cfg.BestiaryNextURL
+	case len(args) == 1 && args[0] == "prev":
+		if cfg.BestiaryPrevURL == "" {
+			return errors.New("no previous page")
+		}
+		pageURL = cfg.BestiaryPrevURL
+	default:
+		return errors.New("usage: bestiary [next|prev]")
+	}
+
+	page, err := cfg.Client.GetPage(pageURL)
+	if err != nil {
+		return fmt.Errorf("fetching bestiary page: %w", err)
+	}
+
+	cfg.BestiaryNextURL = page.NextURL
+	cfg.BestiaryPrevURL = page.PrevURL
+
+	fmt.Printf("Bestiary - %d monsters known\n\n", page.Count)
+	for _, monster := range page.Monsters {
+		fmt.Printf("  %-25s %s\n", monster.Slug, monster.Name)
+	}
+
+	var moreText string
+	var s []string
+	if cfg.BestiaryPrevURL != "" {
+		s = append(s, "bestiary prev")
+	}
+	if cfg.BestiaryNextURL != "" {
+		s = append(s, "bestiary next")
+	}
+
+	if len(s) > 0 {
+		moreText = "More: " + strings.Join(s, " | ")
+	}
+	fmt.Printf("\nType 'inspect <slug>' for details. %s\n", moreText)
+	return nil
+}
+
+func commandInspect(cfg *Config, args []string) error {
+	if len(args) != 1 {
+		return errors.New("usage: inspect <monster>")
+	}
+
+	monsterName := args[0]
+	monster, err := cfg.Client.GetMonster(monsterName)
+	if err != nil {
+		return fmt.Errorf("issue while finding the monster %q: %w", monsterName, err)
+	}
+
+	fmt.Printf("Name: %s\nHP: %d\nArmor Class: %d\nChallenge Rating: %s\nActions:\n", monster.Name, monster.HP, monster.ArmorClass, monster.ChallengeRating)
+	for _, action := range monster.Actions {
+		fmt.Printf("  - %s: %s\n", action.Name, action.Desc)
+	}
+	return nil
+}
+
 func commandTravel(cfg *Config, args []string) error {
 	if len(args) != 1 {
 		return errors.New("usage: travel <region>")

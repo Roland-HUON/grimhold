@@ -14,16 +14,16 @@ const jsonPath = "internal/world/world.json"
 
 func main() {
 	gameWorld, err := world.CreateWorld(jsonPath)
-	client := open5e.NewClient(10*time.Second, 5*time.Minute)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 
+	client := open5e.NewClient(10*time.Second, 5*time.Minute)
 	cfg := &repl.Config{
 		World:           gameWorld,
 		IDCurrentRegion: gameWorld.Start,
-		Client: *client,
+		Client:          client,
 	}
 	if err := repl.Start(cfg); err != nil {
 		fmt.Fprintln(os.Stderr, err)
