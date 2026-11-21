@@ -1,0 +1,77 @@
+package open5e
+
+import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"time"
+)
+
+const baseURL = "https://api.open5e.com/v1/"
+
+type Client struct {
+	httpClient http.Client
+}
+
+func NewClient(timeout time.Duration) *Client {
+	return &Client{
+		httpClient: http.Client{Timeout: timeout},
+	}
+}
+
+func (c *Client) fetch(url string) ([]byte, error) {
+	response, err := c.httpClient.Get(url + "&format=json")
+	if err != nil {
+		return nil, fmt.Errorf("requesting %s: %w", url, err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode == http.StatusNotFound {
+		return nil, errors.New("not found")
+	}
+
+	if response.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status %d for %s", response.StatusCode, url)
+	}
+
+	data, err := io.ReadAll(response.Body)
+	if err != nil {
+		return nil, fmt.Errorf("reading response: %w", err)
+	}
+	return data, nil
+}
+
+func (c *Client) GetMonster(name string) (Monster, error) {
+	data, err := c.fetch(baseURL + "monsters/" + url.PathEscape(name) + "/")
+	if err != nil {
+		return Monster{}, fmt.Errorf("fetching monster %q: %w", name, err)
+	}
+
+	var monster Monster
+	if err := json.Unmarshal(data, &monster); err != nil {
+		return Monster{}, fmt.Errorf("decoding monster %q: %w", name, err)
+	}
+
+	return monster, nil
+}
+
+func (c *Client) GetPage(pageURL string) (MonstersPage, error) {
+	var currentURL string = pageURL
+	if pageURL == "" {
+		currentURL = baseURL + "monsters/?limit=20"
+	}
+
+	data, err := c.fetch(currentURL)
+	if err != nil {
+		return MonstersPage{}, fmt.Errorf("fetching page %q: %w", currentURL, err)
+	}
+
+	var monsterPage MonstersPage
+	if err := json.Unmarshal(data, &monsterPage); err != nil {
+		return MonstersPage{}, fmt.Errorf("decoding page %q: %w", currentURL, err)
+	}
+	return monsterPage, nil
+}
