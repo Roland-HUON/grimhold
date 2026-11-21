@@ -5,6 +5,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/Roland-HUON/grimhold/internal/game"
 	"github.com/Roland-HUON/grimhold/internal/open5e"
 	"github.com/Roland-HUON/grimhold/internal/repl"
 	"github.com/Roland-HUON/grimhold/internal/world"
@@ -20,10 +21,12 @@ func main() {
 	}
 
 	client := open5e.NewClient(10*time.Second, 5*time.Minute)
+	player := game.NewPlayer()
 	cfg := &repl.Config{
 		World:           gameWorld,
 		IDCurrentRegion: gameWorld.Start,
 		Client:          client,
+		Player:          player,
 	}
 	if err := repl.Start(cfg); err != nil {
 		fmt.Fprintln(os.Stderr, err)

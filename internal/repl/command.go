@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/Roland-HUON/grimhold/internal/game"
 	"github.com/Roland-HUON/grimhold/internal/open5e"
 	"github.com/Roland-HUON/grimhold/internal/world"
 )
@@ -18,6 +19,7 @@ type Config struct {
 	World           world.World
 	IDCurrentRegion string
 	Client          *open5e.Client
+	Player          *game.Player
 	BestiaryPrevURL string
 	BestiaryNextURL string
 }
