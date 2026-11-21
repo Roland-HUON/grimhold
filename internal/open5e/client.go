@@ -23,7 +23,7 @@ func NewClient(timeout time.Duration) *Client {
 }
 
 func (c *Client) fetch(url string) ([]byte, error) {
-	response, err := c.httpClient.Get(url + "&format=json")
+	response, err := c.httpClient.Get(url)
 	if err != nil {
 		return nil, fmt.Errorf("requesting %s: %w", url, err)
 	}
@@ -61,7 +61,7 @@ func (c *Client) GetMonster(name string) (Monster, error) {
 func (c *Client) GetPage(pageURL string) (MonstersPage, error) {
 	var currentURL string = pageURL
 	if pageURL == "" {
-		currentURL = baseURL + "monsters/?limit=20"
+		currentURL = baseURL + "monsters/?limit=20&format=json"
 	}
 
 	data, err := c.fetch(currentURL)
