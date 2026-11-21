@@ -63,26 +63,44 @@ func commandHelp(cfg *Config, args []string) error {
 	fmt.Println("Grimhold — a dungeon crawler \n \n Commands:")
 	cmds := getCommands()
 	for _, name := range slices.Sorted(maps.Keys(cmds)) {
-		fmt.Printf("%s     %-20s\n", cmds[name].Name, cmds[name].Description)
+		fmt.Printf("%-20s %s\n", cmds[name].Name, cmds[name].Description)
 	}
 	return nil
 }
 
-func commandMap(cfg *Config, args []string) error { 
+func commandMap(cfg *Config, args []string) error {
 	regions := cfg.World.Regions
 
 	for _, region := range regions {
 		if cfg.IDCurrentRegion == region.ID {
-			fmt.Printf("-> Name: %-20s\n Danger level: %-20d\n Exits: %-20s (you are here)\n", region.Name, region.Danger, strings.Join(region.Exits, ", "))
+			fmt.Printf("-> Name: %s\nDanger level: %d\nExits: %s (you are here)\n", region.Name, region.Danger, strings.Join(region.Exits, ", "))
+		} else {
+			fmt.Printf("   Name: %s\nDanger level: %d\nExits: %s\n", region.Name, region.Danger, strings.Join(region.Exits, ", "))
 		}
-		fmt.Printf("    Name: %-20s\n Danger level: %-20d\n Exits: %-20s\n", region.Name, region.Danger, strings.Join(region.Exits, ", "))
 	}
-	return nil 
+	return nil
 }
 func commandTravel(cfg *Config, args []string) error {
 	if len(args) != 1 {
 		return errors.New("usage: travel <region>")
 	}
+
+	destID := args[0]
+	region, ok := world.FindRegionByID(cfg.World, destID)
+	if !ok {
+		return fmt.Errorf("this region ID is not found: %q", destID)
+	}
+
+	if destID == cfg.IDCurrentRegion {
+		return errors.New("you are already in this region")
+	}
+
+	currentRegion, _ := world.FindRegionByID(cfg.World, cfg.IDCurrentRegion)
+	if !slices.Contains(currentRegion.Exits, destID) {
+		return fmt.Errorf("you can't reach %s from %s", destID, currentRegion.Name)
+	}
+	cfg.IDCurrentRegion = region.ID
+	fmt.Printf("you arrived to the region %s\n", region.Name)
 	return nil
 }
 
@@ -105,7 +123,7 @@ func commandLook(cfg *Config, args []string) error {
 	default:
 		dangerWarning = "This place belong to the void, a place known to no one, yet it seems like I remember this place... A place where time and space belong to these creatures lurking in the void, where no living beings has ever set foot on this land."
 	}
-	fmt.Printf("Name: %s\nDescription: %s\nExits: %s\nDanger: %s\n", region.Name, region.Description, strings.Join(region.Exits , ", "), dangerWarning)
+	fmt.Printf("Name: %s\nDescription: %s\nExits: %s\nDanger: %s\n", region.Name, region.Description, strings.Join(region.Exits, ", "), dangerWarning)
 	return nil
 }
 

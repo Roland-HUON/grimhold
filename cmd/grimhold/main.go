@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
-	
+
 	"github.com/Roland-HUON/grimhold/internal/repl"
 	"github.com/Roland-HUON/grimhold/internal/world"
 )
