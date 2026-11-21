@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/Roland-HUON/grimhold/internal/world"
+	"github.com/Roland-HUON/grimhold/internal/open5e"
 )
 
 var errExit = errors.New("exit")
@@ -16,6 +17,9 @@ var errExit = errors.New("exit")
 type Config struct {
 	World           world.World
 	IDCurrentRegion string
+	Client open5e.Client
+	Prev string
+	Next string
 }
 
 type cliCommand struct {
