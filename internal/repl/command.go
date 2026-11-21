@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"math/rand/v2"
 	"slices"
 	"strings"
 
@@ -20,6 +21,7 @@ type Config struct {
 	IDCurrentRegion string
 	Client          *open5e.Client
 	Player          *game.Player
+	CurrentFoe      *open5e.Monster
 	BestiaryPrevURL string
 	BestiaryNextURL string
 }
@@ -209,5 +211,37 @@ func commandLook(cfg *Config, args []string) error {
 	return nil
 }
 
-func commandExplore(cfg *Config, args []string) error { return nil }
-func commandExit(cfg *Config, args []string) error    { return errExit }
+func commandExplore(cfg *Config, args []string) error {
+	if cfg.CurrentFoe != nil {
+		return fmt.Errorf("you are already fighting %s", cfg.CurrentFoe.Name)
+	}
+	region, ok := world.FindRegionByID(cfg.World, cfg.IDCurrentRegion)
+	if !ok {
+		return errors.New("not found the current region")
+	}
+	if len(region.Foes) == 0 {
+		return errors.New("nothing lurks here")
+	}
+
+	rolls := region.Danger
+	if rolls < 1 {
+		rolls = 1
+	}
+
+	var worstMonsterFind *open5e.Monster
+	for i := 0; i < rolls; i++ {
+		monsterIndex := rand.IntN(len(region.Foes))
+		monsterSlug := region.Foes[monsterIndex]
+		monster, err := cfg.Client.GetMonster(monsterSlug)
+		if err != nil {
+			return fmt.Errorf("exploring: %w", err)
+		}
+		if worstMonsterFind == nil || monster.CR > worstMonsterFind.CR {
+			worstMonsterFind = &monster
+		}
+	}
+	cfg.CurrentFoe = worstMonsterFind
+	fmt.Printf("A %s emerges from the shadow! (HP %d, Armor class %d)\nType 'fight' to attack or 'flee' to run.\n", cfg.CurrentFoe.Name, cfg.CurrentFoe.HP, cfg.CurrentFoe.ArmorClass)
+	return nil
+}
+func commandExit(cfg *Config, args []string) error { return errExit }
