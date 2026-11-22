@@ -2,10 +2,13 @@ package repl
 
 // tomlouveau78@gmail.com
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"maps"
 	"math/rand/v2"
+	"os"
 	"slices"
 	"strings"
 
@@ -89,6 +92,16 @@ func getCommands() map[string]cliCommand {
 			Name:        "explore",
 			Description: "Wander the region (risk an encounter)",
 			Callback:    commandExplore,
+		},
+		"save": {
+			Name:        "save",
+			Description: "Save your progression",
+			Callback:    commandSave,
+		},
+		"load": {
+			Name:        "load",
+			Description: "Load your progression from a JSON file",
+			Callback:    commandLoad,
 		},
 		"exit": {
 			Name:        "exit",
@@ -384,4 +397,57 @@ func commandFlee(cfg *Config, args []string) error {
 	fmt.Printf("You: %d/%d HP | %s: %d HP\n", cfg.Player.HP, cfg.Player.MaxHP, cfg.CurrentFoe.Name, cfg.CurrentFoe.HP)
 	return nil
 }
+
+func commandSave(cfg *Config, args []string) error {
+	if cfg.CurrentFoe != nil {
+		return fmt.Errorf("you can't save while fighting %s", cfg.CurrentFoe.Name)
+	}
+	data := saveData{
+		IDCurrentRegion: cfg.IDCurrentRegion,
+		HasRested:       cfg.HasRested,
+		Player:          *cfg.Player,
+	}
+	bytes, err := json.MarshalIndent(data, "", "  ")
+	if err != nil {
+		return fmt.Errorf("encoding save: %w", err)
+	}
+
+	err = os.WriteFile(saveFile, bytes, 0644)
+	if err != nil {
+		return fmt.Errorf("writing save: %w", err)
+	}
+	fmt.Println("Game saved.")
+	return nil
+}
+
+func commandLoad(cfg *Config, args []string) error {
+	if cfg.CurrentFoe != nil {
+		return fmt.Errorf("you can't load while fighting %s", cfg.CurrentFoe.Name)
+	}
+	var data saveData
+	bytes, err := os.ReadFile(saveFile)
+	if errors.Is(err, fs.ErrNotExist) {
+		return errors.New("no save found")
+	} else if err != nil {
+		return fmt.Errorf("reading save: %w", err)
+	}
+	err = json.Unmarshal(bytes, &data)
+	if err != nil {
+		return fmt.Errorf("decoding save: %w", err)
+	}
+	region, ok := world.FindRegionByID(cfg.World, data.IDCurrentRegion)
+	if !ok {
+		return fmt.Errorf("save points to unknown region %q", data.IDCurrentRegion)
+	}
+	if data.Player.BestiaryKilled == nil {
+		data.Player.BestiaryKilled = make(map[string]int)
+	}
+	cfg.IDCurrentRegion = data.IDCurrentRegion
+	cfg.HasRested = data.HasRested
+	cfg.Player = &data.Player
+	cfg.CurrentFoe = nil
+	fmt.Printf("Game loaded. You are at %s.\n", region.Name)
+	return nil
+}
+
 func commandExit(cfg *Config, args []string) error { return errExit }
