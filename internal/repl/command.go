@@ -1,6 +1,5 @@
 package repl
 
-// tomlouveau78@gmail.com
 import (
 	"encoding/json"
 	"errors"
