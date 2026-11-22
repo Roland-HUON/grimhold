@@ -64,6 +64,11 @@ func getCommands() map[string]cliCommand {
 			Description: "Fight for your life",
 			Callback:    commandFight,
 		},
+		"flee": {
+			Name:        "flee",
+			Description: "Run for your life",
+			Callback:    commandFlee,
+		},
 		"look": {
 			Name:        "look",
 			Description: "Describe your surroundings",
@@ -171,8 +176,7 @@ func commandInspect(cfg *Config, args []string) error {
 
 func commandTravel(cfg *Config, args []string) error {
 	if cfg.CurrentFoe != nil {
-		fmt.Printf("You cannot travel while fighting")
-		return nil
+		return fmt.Errorf("you can't leave while fighting %s, fight or flee", cfg.CurrentFoe.Name)
 	}
 	if len(args) != 1 {
 		return errors.New("usage: travel <region>")
@@ -277,7 +281,17 @@ func commandFight(cfg *Config, args []string) error {
 		cfg.CurrentFoe = nil
 		return nil
 	}
+	if err := monsterTurn(cfg); err != nil {
+		return err
+	}
+	if cfg.CurrentFoe == nil {
+		return nil
+	}
+	fmt.Printf("You: %d/%d HP | %s: %d HP\n", cfg.Player.HP, cfg.Player.MaxHP, cfg.CurrentFoe.Name, cfg.CurrentFoe.HP)
+	return nil
+}
 
+func monsterTurn(cfg *Config) error {
 	monsterDamage, err := game.MonsterAttack(cfg.CurrentFoe, cfg.Player)
 	if err != nil {
 		return fmt.Errorf("monster attack: %w", err)
@@ -298,9 +312,27 @@ func commandFight(cfg *Config, args []string) error {
 			return errors.New("not found the starting region")
 		}
 		fmt.Printf("You have been slain...\nYou wake up at %s with 1 HP, your pride wounded.\n", region.Name)
+	}
+	return nil
+}
+
+func commandFlee(cfg *Config, args []string) error {
+	if cfg.CurrentFoe == nil {
+		return errors.New("nothing to flee from")
+	}
+	jet, success := game.TryFlee()
+	if success {
+		fmt.Printf("You escape from the %s (%d vs %d)!\n", cfg.CurrentFoe.Name, jet, game.FleeDC)
+		cfg.CurrentFoe = nil
 		return nil
 	}
-
+	fmt.Printf("You fail to escape (%d vs %d)!\n", jet, game.FleeDC)
+	if err := monsterTurn(cfg); err != nil {
+		return err
+	}
+	if cfg.CurrentFoe == nil {
+		return nil
+	}
 	fmt.Printf("You: %d/%d HP | %s: %d HP\n", cfg.Player.HP, cfg.Player.MaxHP, cfg.CurrentFoe.Name, cfg.CurrentFoe.HP)
 	return nil
 }

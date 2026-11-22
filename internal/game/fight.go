@@ -7,6 +7,10 @@ import (
 	"github.com/Roland-HUON/grimhold/internal/open5e"
 )
 
+const (
+	FleeDC int = 10
+)
+
 type AttackResult struct {
 	ActionName string
 	Roll       int
@@ -74,6 +78,11 @@ func MonsterAttack(m *open5e.Monster, p *Player) (AttackResult, error) {
 	p.HP -= result.Damage
 
 	return result, nil
+}
+
+func TryFlee() (int, bool) {
+	result := RollDie(20)
+	return result, result >= FleeDC
 }
 
 func (p *Player) Win(m *open5e.Monster) VictoryReward {
