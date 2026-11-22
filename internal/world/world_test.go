@@ -1,0 +1,44 @@
+package world
+
+import (
+	"os"
+	"path/filepath"
+	"testing"
+)
+
+func TestCreateWorldWithRealFile(t *testing.T) {
+	w, err := CreateWorld("world.json")
+	if err != nil {
+		t.Fatalf("the shipped world.json must be valid: %v", err)
+	}
+	if _, ok := FindRegionByID(w, w.Start); !ok {
+		t.Errorf("start region %q not found", w.Start)
+	}
+}
+
+func TestCreateWorldRejectsInvalidFiles(t *testing.T) {
+	tests := []struct {
+		name    string
+		content string
+	}{
+		{"broken JSON", `{"start": `},
+		{"unknown start", `{"start": "nowhere", "regions": [{"id": "a", "exits": []}]}`},
+		{"unknown exit", `{"start": "a", "regions": [{"id": "a", "exits": ["b"]}]}`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "world.json")
+			if err := os.WriteFile(path, []byte(tt.content), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := CreateWorld(path); err == nil {
+				t.Error("expected an error, got nil")
+			}
+		})
+	}
+
+	if _, err := CreateWorld(filepath.Join(t.TempDir(), "missing.json")); err == nil {
+		t.Error("a missing file should return an error")
+	}
+}
