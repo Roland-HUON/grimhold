@@ -49,6 +49,11 @@ func getCommands() map[string]cliCommand {
 			Description: "Book of monsters",
 			Callback:    commandBestiary,
 		},
+		"character": {
+			Name:        "character",
+			Description: "See the character sheet",
+			Callback:    commandCharacter,
+		},
 		"inspect": {
 			Name:        "inspect <monster>",
 			Description: "Find information about a monster",
@@ -153,6 +158,28 @@ func commandBestiary(cfg *Config, args []string) error {
 		moreText = "More: " + strings.Join(s, " | ")
 	}
 	fmt.Printf("\nType 'inspect <slug>' for details. %s\n", moreText)
+	return nil
+}
+
+func commandCharacter(cfg *Config, args []string) error {
+	fmt.Printf("%-20s %d\n", "Level:", cfg.Player.Level)
+	fmt.Printf("%-20s %d/%d\n", "HP:", cfg.Player.HP, cfg.Player.MaxHP)
+	fmt.Printf("%-20s %d/%d\n", "XP:", cfg.Player.XP, cfg.Player.NextLevelXP())
+	fmt.Printf("%-20s %d\n", "Attack Bonus:", cfg.Player.AttackBonus)
+	fmt.Printf("%-20s %d\n", "Armor Class:", cfg.Player.ArmorClass)
+	fmt.Printf("Weapon:\n")
+	fmt.Printf("- %-18s %s\n", "Name:", cfg.Player.Weapon.Name)
+	fmt.Printf("- %-18s %s\n", "Damage Dice:", cfg.Player.Weapon.DamageDice)
+	fmt.Printf("- %-18s %d\n", "Damage Bonus:", cfg.Player.Weapon.DamageBonus)
+	fmt.Printf("%-20s %d\n", "Gold:", cfg.Player.Gold)
+	if len(cfg.Player.BestiaryKilled) == 0 {
+		fmt.Printf("Bestiary killed : None yet\n")
+	} else {
+		fmt.Printf("Bestiary killed:\n")
+		for _, monster := range slices.Sorted(maps.Keys(cfg.Player.BestiaryKilled)) {
+			fmt.Printf("- %s x %d\n", monster, cfg.Player.BestiaryKilled[monster])
+		}
+	}
 	return nil
 }
 

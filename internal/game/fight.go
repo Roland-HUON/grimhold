@@ -96,7 +96,7 @@ func (p *Player) Win(m *open5e.Monster) VictoryReward {
 	p.XP += xp
 	p.Gold += gold
 	p.BestiaryKilled[m.Slug]++
-	for p.XP >= p.Level*p.Level*50 {
+	for p.XP >= p.NextLevelXP() {
 		p.Level++
 		p.MaxHP += 10
 		p.HP = p.MaxHP

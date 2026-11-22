@@ -35,3 +35,7 @@ func NewPlayer() *Player {
 		BestiaryKilled: make(map[string]int),
 	}
 }
+
+func (p *Player) NextLevelXP() int {
+	return p.Level * p.Level * 50
+}
