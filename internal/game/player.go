@@ -1,6 +1,7 @@
 package game
 
 type Weapon struct {
+	Slug        string `json:"slug"`
 	Name        string `json:"name"`
 	DamageDice  string `json:"damage_dice"`
 	DamageBonus int    `json:"damage_bonus"`
@@ -14,6 +15,7 @@ type Player struct {
 	AttackBonus    int            `json:"attack_bonus"`
 	ArmorClass     int            `json:"armor_class"`
 	Weapon         Weapon         `json:"weapon"`
+	Inventory      []Weapon       `json:"inventory"`
 	Gold           int            `json:"gold"`
 	BestiaryKilled map[string]int `json:"bestiary_killed"`
 }
@@ -27,6 +29,7 @@ func NewPlayer() *Player {
 		AttackBonus: 3,
 		ArmorClass:  12,
 		Weapon: Weapon{
+			Slug:        "longsword",
 			Name:        "Longsword",
 			DamageDice:  "1d8",
 			DamageBonus: 2,

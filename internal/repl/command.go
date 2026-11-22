@@ -27,6 +27,7 @@ type Config struct {
 	Player          *game.Player
 	CurrentFoe      *open5e.Monster
 	CurrentFoeMaxHP int
+	CanLoot         bool
 	BestiaryPrevURL string
 	BestiaryNextURL string
 }
@@ -74,6 +75,16 @@ func getCommands() map[string]cliCommand {
 			Description: "Rest once per region to restore full HP",
 			Callback:    commandRest,
 		},
+		"equip": {
+			Name:        "equip <weapon>",
+			Description: "Wield a weapon from your bag",
+			Callback:    commandEquip,
+		},
+		"loot": {
+			Name:        "loot",
+			Description: "Take what will be yours",
+			Callback:    commandLoot,
+		},
 		"fight": {
 			Name:        "fight",
 			Description: "Fight for your life",
@@ -93,6 +104,11 @@ func getCommands() map[string]cliCommand {
 			Name:        "explore",
 			Description: "Wander the region (risk an encounter)",
 			Callback:    commandExplore,
+		},
+		"weapons": {
+			Name:        "weapons",
+			Description: "List of the weapons of the realm.",
+			Callback:    commandWeapons,
 		},
 		"save": {
 			Name:        "save",
@@ -192,6 +208,15 @@ func commandCharacter(cfg *Config, args []string) error {
 	fmt.Printf("- %-18s %s\n", "Damage Dice:", cfg.Player.Weapon.DamageDice)
 	fmt.Printf("- %-18s %d\n", "Damage Bonus:", cfg.Player.Weapon.DamageBonus)
 	fmt.Printf("%-20s %d\n", "Gold:", cfg.Player.Gold)
+	if len(cfg.Player.Inventory) == 0 {
+		fmt.Printf("Inventory: empty\n")
+	} else {
+		fmt.Printf("Inventory:\n")
+		for _, weapon := range cfg.Player.Inventory {
+			label := fmt.Sprintf("%s (%s+%d)", weapon.Name, weapon.DamageDice, weapon.DamageBonus)
+			fmt.Printf("- %-25s -> equip %s\n", label, weapon.Slug)
+		}
+	}
 	if len(cfg.Player.BestiaryKilled) == 0 {
 		fmt.Printf("Bestiary killed: None yet\n")
 	} else {
@@ -245,6 +270,7 @@ func commandTravel(cfg *Config, args []string) error {
 	}
 	cfg.IDCurrentRegion = region.ID
 	cfg.HasRested = false
+	cfg.CanLoot = false
 	fmt.Printf("You arrive at %s\n", region.Name)
 	return nil
 }
@@ -314,9 +340,61 @@ func commandExplore(cfg *Config, args []string) error {
 			worstMonsterFind = &monster
 		}
 	}
+	cfg.CanLoot = false
 	cfg.CurrentFoe = worstMonsterFind
 	cfg.CurrentFoeMaxHP = cfg.CurrentFoe.HP
 	fmt.Printf("A %s emerges from the shadow! (HP %d, Armor class %d)\nType 'fight' to attack or 'flee' to run.\n", cfg.CurrentFoe.Name, cfg.CurrentFoe.HP, cfg.CurrentFoe.ArmorClass)
+	return nil
+}
+
+func commandEquip(cfg *Config, args []string) error {
+	if cfg.CurrentFoe != nil {
+		return fmt.Errorf("you can't equip while fighting %s, fight or flee", cfg.CurrentFoe.Name)
+	}
+	if len(args) != 1 {
+		return errors.New("usage: equip <weapon>")
+	}
+
+	p := cfg.Player
+	slug := args[0]
+
+	for i, weapon := range p.Inventory {
+		if weapon.Slug == slug {
+			p.Weapon, p.Inventory[i] = p.Inventory[i], p.Weapon
+			fmt.Printf("You now wield a %s (%s).\n", p.Weapon.Name, p.Weapon.DamageDice)
+			return nil
+		}
+	}
+	return fmt.Errorf("you don't have %q in your bag", slug)
+}
+
+func commandLoot(cfg *Config, args []string) error {
+	if !cfg.CanLoot {
+		return errors.New("nothing to loot, win a fight first")
+	}
+	cfg.CanLoot = false
+	if rand.IntN(2) == 0 {
+		fmt.Printf("You search the body... nothing useful.\n")
+		return nil
+	}
+
+	weapons, err := cfg.Client.GetWeapons()
+	if err != nil {
+		return fmt.Errorf("looting: %w", err)
+	}
+	if len(weapons) == 0 {
+		return errors.New("no weapon to find")
+	}
+
+	found := weapons[rand.IntN(len(weapons))]
+	loot := game.Weapon{
+		Slug:        found.Slug,
+		Name:        found.Name,
+		DamageDice:  found.DamageDice,
+		DamageBonus: 0,
+	}
+	cfg.Player.Inventory = append(cfg.Player.Inventory, loot)
+	fmt.Printf("You found a %s (%s)! Type 'equip %s' to wield it.\n", loot.Name, loot.DamageDice, loot.Slug)
 	return nil
 }
 
@@ -340,6 +418,7 @@ func commandFight(cfg *Config, args []string) error {
 		if reward.LevelsGained >= 1 {
 			fmt.Printf("Level up! You are now level %d.\n", cfg.Player.Level)
 		}
+		cfg.CanLoot = true
 		cfg.CurrentFoe = nil
 		return nil
 	}
@@ -367,6 +446,7 @@ func monsterTurn(cfg *Config) error {
 	}
 	if cfg.Player.HP <= 0 {
 		cfg.Player.Defeat()
+		cfg.CanLoot = false
 		cfg.CurrentFoe = nil
 		cfg.IDCurrentRegion = cfg.World.Start
 		cfg.HasRested = false
@@ -397,6 +477,18 @@ func commandFlee(cfg *Config, args []string) error {
 		return nil
 	}
 	fmt.Printf("You: %s | %s: %s\n", hpBar(cfg.Player.HP, cfg.Player.MaxHP, 10), cfg.CurrentFoe.Name, hpBar(cfg.CurrentFoe.HP, cfg.CurrentFoeMaxHP, 10))
+	return nil
+}
+
+func commandWeapons(cfg *Config, args []string) error {
+	weapons, err := cfg.Client.GetWeapons()
+	if err != nil {
+		return fmt.Errorf("listing weapons: %w", err)
+	}
+	fmt.Printf("Armory - %d weapons\n", len(weapons))
+	for _, weapon := range weapons {
+		fmt.Printf("  %-25s %-20s %s\n", weapon.Slug, weapon.Name, weapon.DamageDice)
+	}
 	return nil
 }
 
@@ -447,6 +539,7 @@ func commandLoad(cfg *Config, args []string) error {
 	cfg.IDCurrentRegion = data.IDCurrentRegion
 	cfg.HasRested = data.HasRested
 	cfg.Player = &data.Player
+	cfg.CanLoot = false
 	cfg.CurrentFoe = nil
 	fmt.Printf("Game loaded. You are at %s.\n", region.Name)
 	return nil

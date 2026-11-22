@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/Roland-HUON/grimhold/internal/cache"
@@ -85,4 +86,22 @@ func (c *Client) GetPage(pageURL string) (MonstersPage, error) {
 		return MonstersPage{}, fmt.Errorf("decoding page %q: %w", currentURL, err)
 	}
 	return monsterPage, nil
+}
+
+func (c *Client) GetWeapons() ([]Weapon, error) {
+	var page WeaponsPage
+	var equipment []Weapon
+	data, err := c.fetch(baseURL + "weapons/?limit=100")
+	if err != nil {
+		return nil, fmt.Errorf("fetching weapons: %w", err)
+	}
+	if err := json.Unmarshal(data, &page); err != nil {
+		return nil, fmt.Errorf("decoding page %q: %w", baseURL+"weapons/?limit=100", err)
+	}
+	for _, weapon := range page.Results {
+		if strings.Contains(weapon.DamageDice, "d") {
+			equipment = append(equipment, weapon)
+		}
+	}
+	return equipment, nil
 }

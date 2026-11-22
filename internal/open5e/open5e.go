@@ -24,3 +24,14 @@ type MonstersPage struct {
 	PrevURL  string    `json:"previous"`
 	Monsters []Monster `json:"results"`
 }
+
+type Weapon struct {
+	Slug       string `json:"slug"`
+	Name       string `json:"name"`
+	Category   string `json:"category"`
+	DamageDice string `json:"damage_dice"`
+}
+
+type WeaponsPage struct {
+	Results []Weapon `json:"results"`
+}
