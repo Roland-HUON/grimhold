@@ -50,7 +50,7 @@ func PlayerAttack(p *Player, m *open5e.Monster) (AttackResult, error) {
 func MonsterAttack(m *open5e.Monster, p *Player) (AttackResult, error) {
 	var playable []open5e.Action
 	for _, action := range m.Actions {
-		if action.DamageDice != "" {
+		if ValidDice(action.DamageDice) == nil {
 			playable = append(playable, action)
 		}
 	}

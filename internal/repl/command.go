@@ -32,6 +32,7 @@ type Config struct {
 type cliCommand struct {
 	name        string
 	description string
+	takesArgs   bool
 	callback    func(cfg *Config, args []string) error
 }
 
@@ -50,6 +51,7 @@ func getCommands() map[string]cliCommand {
 		"bestiary": {
 			name:        "bestiary [next|prev]",
 			description: "Browse the monsters of the realm",
+			takesArgs:   true,
 			callback:    commandBestiary,
 		},
 		"character": {
@@ -60,11 +62,13 @@ func getCommands() map[string]cliCommand {
 		"inspect": {
 			name:        "inspect <monster>",
 			description: "Show the stat block of a monster",
+			takesArgs:   true,
 			callback:    commandInspect,
 		},
 		"travel": {
 			name:        "travel <region>",
 			description: "Travel to a connected region",
+			takesArgs:   true,
 			callback:    commandTravel,
 		},
 		"rest": {
@@ -75,6 +79,7 @@ func getCommands() map[string]cliCommand {
 		"equip": {
 			name:        "equip <weapon>",
 			description: "Wield a weapon from your inventory",
+			takesArgs:   true,
 			callback:    commandEquip,
 		},
 		"loot": {
@@ -85,6 +90,7 @@ func getCommands() map[string]cliCommand {
 		"cast": {
 			name:        "cast <spell>",
 			description: "Cast a spell (once per rest)",
+			takesArgs:   true,
 			callback:    commandCast,
 		},
 		"fight": {
@@ -187,7 +193,7 @@ func commandBestiary(cfg *Config, args []string) error {
 
 	fmt.Printf("Bestiary - %d monsters known\n\n", page.Count)
 	for _, monster := range page.Monsters {
-		fmt.Printf("  %-25s %s\n", monster.Slug, monster.Name)
+		fmt.Printf("  %-32s %s\n", monster.Slug, monster.Name)
 	}
 
 	var moreText string
@@ -277,7 +283,7 @@ func commandInspect(cfg *Config, args []string) error {
 
 func commandTravel(cfg *Config, args []string) error {
 	if cfg.CurrentFoe != nil {
-		return fmt.Errorf("you can't leave while fighting %s, fight or flee", cfg.CurrentFoe.Name)
+		return fmt.Errorf("you can't leave while fighting %s, fight or flee", foeName(cfg))
 	}
 	if len(args) == 0 {
 		return errors.New("usage: travel <region>")
@@ -286,7 +292,7 @@ func commandTravel(cfg *Config, args []string) error {
 	destID := toSlug(args)
 	region, ok := world.FindRegionByID(cfg.World, destID)
 	if !ok {
-		return fmt.Errorf("this region ID is not found: %q", destID)
+		return fmt.Errorf("unknown region %q, type 'map' to see them", destID)
 	}
 
 	if destID == cfg.IDCurrentRegion {
@@ -313,7 +319,7 @@ func commandTravel(cfg *Config, args []string) error {
 
 func commandRest(cfg *Config, args []string) error {
 	if cfg.CurrentFoe != nil {
-		return fmt.Errorf("you can't rest while fighting %s, fight or flee", cfg.CurrentFoe.Name)
+		return fmt.Errorf("you can't rest while fighting %s, fight or flee", foeName(cfg))
 	}
 	if cfg.HasRested {
 		return errors.New("you have already rested in this region")
@@ -337,14 +343,16 @@ func commandLook(cfg *Config, args []string) error {
 		return fmt.Errorf("current region %q not found", cfg.IDCurrentRegion)
 	}
 
-	switch region.Danger {
-	case 1:
+	switch {
+	case slices.Contains(cfg.Player.BossesSlain, region.Boss):
+		dangerWarning = "The air is still, its master is dead"
+	case region.Danger == 1:
 		dangerWarning = "The air feels calm"
-	case 2:
+	case region.Danger == 2:
 		dangerWarning = "Something is watching you"
-	case 3:
+	case region.Danger == 3:
 		dangerWarning = "The smell of blood hangs in the air"
-	case 4:
+	case region.Danger == 4:
 		dangerWarning = "Death lingers here"
 	default:
 		dangerWarning = "This place belongs to the void. No living being has ever come back from it"
@@ -355,7 +363,7 @@ func commandLook(cfg *Config, args []string) error {
 
 func commandExplore(cfg *Config, args []string) error {
 	if cfg.CurrentFoe != nil {
-		return fmt.Errorf("you are already fighting %s", cfg.CurrentFoe.Name)
+		return fmt.Errorf("you are already fighting %s", foeName(cfg))
 	}
 	region, ok := world.FindRegionByID(cfg.World, cfg.IDCurrentRegion)
 	if !ok {
@@ -399,7 +407,7 @@ func spawnFoe(cfg *Config, region world.Region) error {
 
 func commandEquip(cfg *Config, args []string) error {
 	if cfg.CurrentFoe != nil {
-		return fmt.Errorf("you can't equip while fighting %s, fight or flee", cfg.CurrentFoe.Name)
+		return fmt.Errorf("you can't equip while fighting %s, fight or flee", foeName(cfg))
 	}
 	if len(args) == 0 {
 		return errors.New("usage: equip <weapon>")
@@ -423,7 +431,7 @@ func commandEquip(cfg *Config, args []string) error {
 
 func commandLoot(cfg *Config, args []string) error {
 	if !cfg.CanLoot {
-		return errors.New("nothing to loot, win a fight first")
+		return errors.New("nothing to loot: win a fight first, each body can only be searched once")
 	}
 	cfg.CanLoot = false
 	if rand.IntN(2) == 0 {
@@ -606,7 +614,7 @@ func commandWeapons(cfg *Config, args []string) error {
 	}
 	fmt.Printf("Armory - %d weapons\n", len(weapons))
 	for _, weapon := range weapons {
-		fmt.Printf("  %-25s %-20s %s\n", weapon.Slug, weapon.Name, weapon.DamageDice)
+		fmt.Printf("  %-28s %-28s %s\n", weapon.Slug, weapon.Name, weapon.DamageDice)
 	}
 	return nil
 }

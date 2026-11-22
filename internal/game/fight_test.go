@@ -44,7 +44,7 @@ func TestPlayerAttack(t *testing.T) {
 
 func TestMonsterAttackWithoutDamageActions(t *testing.T) {
 	p := NewPlayer()
-	m := &open5e.Monster{Actions: []open5e.Action{{Name: "Multiattack"}}}
+	m := &open5e.Monster{Actions: []open5e.Action{{Name: "Multiattack"}, {Name: "Combo", DamageDice: "2d10+1d8"}}}
 
 	res, err := MonsterAttack(m, p)
 	if err != nil {

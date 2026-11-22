@@ -23,12 +23,15 @@ type saveData struct {
 
 func commandSave(cfg *Config, args []string) error {
 	if cfg.CurrentFoe != nil {
-		return fmt.Errorf("you can't save while fighting %s", cfg.CurrentFoe.Name)
+		return fmt.Errorf("you can't save while fighting %s", foeName(cfg))
 	}
 	data := saveData{
 		IDCurrentRegion: cfg.IDCurrentRegion,
 		HasRested:       cfg.HasRested,
 		Player:          *cfg.Player,
+	}
+	if err := validateSave(&data, cfg.World); err != nil {
+		return fmt.Errorf("refusing to save an invalid game: %w", err)
 	}
 	if err := writeSave(saveFile, data); err != nil {
 		return err
@@ -48,6 +51,9 @@ func writeSave(path string, data saveData) error {
 		return fmt.Errorf("writing save: %w", err)
 	}
 	if err := os.Rename(tmp, path); err != nil {
+		if removeErr := os.Remove(tmp); removeErr != nil {
+			return fmt.Errorf("writing save: %w (and removing %s: %v)", err, tmp, removeErr)
+		}
 		return fmt.Errorf("writing save: %w", err)
 	}
 	return nil
@@ -55,7 +61,7 @@ func writeSave(path string, data saveData) error {
 
 func commandLoad(cfg *Config, args []string) error {
 	if cfg.CurrentFoe != nil {
-		return fmt.Errorf("you can't load while fighting %s", cfg.CurrentFoe.Name)
+		return fmt.Errorf("you can't load while fighting %s", foeName(cfg))
 	}
 	data, err := readSave(saveFile, cfg.World)
 	if err != nil {

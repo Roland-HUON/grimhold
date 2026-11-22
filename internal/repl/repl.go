@@ -22,7 +22,7 @@ const (
 	maxLineSize    = 4096
 )
 
-var errLineTooLong = fmt.Errorf("line too long (max %d characters), ignored", maxLineSize)
+var errLineTooLong = fmt.Errorf("line too long (max %d bytes), ignored", maxLineSize)
 
 type input struct {
 	line string
@@ -42,7 +42,9 @@ func Start(cfg *Config) error {
 	}
 
 	lines := make(chan input)
-	go readLines(reader, lines)
+	done := make(chan struct{})
+	defer close(done)
+	go readLines(reader, lines, done)
 
 	ticker := time.NewTicker(ambushEvery)
 	defer ticker.Stop()
@@ -72,21 +74,27 @@ func Start(cfg *Config) error {
 	}
 }
 
-func readLines(reader *bufio.Reader, lines chan<- input) {
+func readLines(reader *bufio.Reader, lines chan<- input, done <-chan struct{}) {
 	defer close(lines)
 	for {
 		line, err := readLine(reader)
-		if errors.Is(err, errLineTooLong) {
-			lines <- input{err: err}
-			continue
-		}
-		if err != nil {
+		var in input
+		switch {
+		case errors.Is(err, errLineTooLong):
+			in = input{err: err}
+		case err != nil:
 			if !errors.Is(err, io.EOF) {
 				fmt.Println("Error: reading input:", err)
 			}
 			return
+		default:
+			in = input{line: line}
 		}
-		lines <- input{line: line}
+		select {
+		case lines <- in:
+		case <-done:
+			return
+		}
 	}
 }
 
@@ -124,7 +132,11 @@ func handleLine(cfg *Config, commands map[string]cliCommand, line string) bool {
 
 	cmd, ok := commands[args[0]]
 	if !ok {
-		fmt.Printf("Unknown command %q. Type 'help' for any help.\n", args[0])
+		fmt.Printf("Unknown command %q. Type 'help' for any help.\n", shorten(args[0], 30))
+		return false
+	}
+	if !cmd.takesArgs && len(args) > 1 {
+		fmt.Printf("Error: '%s' takes no argument\n", args[0])
 		return false
 	}
 	if err := cmd.callback(cfg, args[1:]); err != nil {
@@ -167,11 +179,13 @@ func chooseSpells(cfg *Config, reader *bufio.Reader) bool {
 			}
 			return false
 		}
-		choice := toSlug(strings.Fields(line))
+		words := strings.Fields(strings.ToLower(line))
+		if len(words) == 0 {
+			continue
+		}
+		choice := toSlug(words)
 
 		switch choice {
-		case "":
-			continue
 		case "exit":
 			return false
 		case "load":
@@ -183,7 +197,7 @@ func chooseSpells(cfg *Config, reader *bufio.Reader) bool {
 		}
 
 		if !slices.Contains(starterSpells, choice) {
-			fmt.Printf("Unknown spell %q, pick one from the list.\n", choice)
+			fmt.Printf("Unknown spell %q, pick one from the list.\n", shorten(choice, 30))
 			continue
 		}
 		known := slices.ContainsFunc(cfg.Player.Spells, func(s game.Spell) bool {
@@ -208,6 +222,14 @@ func chooseSpells(cfg *Config, reader *bufio.Reader) bool {
 		fmt.Printf("You learned %s (%s).\n", spell.Name, spell.Dice)
 	}
 	return true
+}
+
+func shorten(text string, max int) string {
+	runes := []rune(text)
+	if len(runes) <= max {
+		return text
+	}
+	return string(runes[:max]) + "..."
 }
 
 func toSlug(words []string) string {

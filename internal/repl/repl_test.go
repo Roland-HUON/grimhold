@@ -162,6 +162,8 @@ func TestHandleLine(t *testing.T) {
 		{"LOOK", false},
 		{"travel", false},
 		{"travel nowhere", false},
+		{"look around", false},
+		{"exit now", false},
 		{"fight", false},
 		{"loot", false},
 		{"exit", true},
@@ -198,5 +200,35 @@ func TestTryAmbushGuards(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestSaveRefusesInvalidState(t *testing.T) {
+	t.Chdir(t.TempDir())
+	cfg := &Config{World: testWorld(t), IDCurrentRegion: "crossroads", Player: game.NewPlayer()}
+	cfg.Player.Gold = -1
+
+	if err := commandSave(cfg, nil); err == nil {
+		t.Fatal("saving an invalid game should fail")
+	}
+	if _, err := os.Stat(saveFile); !errors.Is(err, os.ErrNotExist) {
+		t.Error("no save file should be written for an invalid game")
+	}
+
+	cfg.Player.Gold = 10
+	if err := commandSave(cfg, nil); err != nil {
+		t.Fatalf("saving a valid game: %v", err)
+	}
+	if _, err := readSave(saveFile, cfg.World); err != nil {
+		t.Errorf("a saved game must load back: %v", err)
+	}
+}
+
+func TestShorten(t *testing.T) {
+	if got := shorten("goblin", 30); got != "goblin" {
+		t.Errorf("shorten(goblin) = %q", got)
+	}
+	if got := shorten(strings.Repeat("é", 40), 30); got != strings.Repeat("é", 30)+"..." {
+		t.Errorf("shorten(long) = %q", got)
 	}
 }

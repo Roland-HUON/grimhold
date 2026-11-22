@@ -76,7 +76,9 @@ weapon, inventory, spells, gold, slain bestiary, bosses slain) and the rest
 state to `save.json`. It writes a temporary file first, then renames it, so an
 interrupted save never leaves a broken file. `load` restores it, or says so if
 no save exists. A save that was edited by hand is checked before being used
-(level, HP, XP, dice, region and its level requirement) and refused if invalid.
+(level, HP, XP, gold, dice, region and its level requirement) and refused if
+invalid. The same check runs before writing, so `save` never replaces a good
+save with a broken one.
 Both commands are refused during a fight, so a death in combat can never
 corrupt the save.
 
@@ -84,8 +86,9 @@ corrupt the save.
 a map guarded by a `sync.Mutex`, and a reaper goroutine purges expired entries.
 The reaper stops when the client is closed.
 
-**Robustness**: unknown commands, missing arguments, empty lines and lines that
-are too long (more than 4096 characters) are reported without leaving the game.
+**Robustness**: unknown commands, missing or extra arguments, empty lines and
+lines that are too long (more than 4096 bytes) are reported without leaving the
+game.
 
 ## Sample session
 
@@ -231,12 +234,12 @@ No test hits the network.
 |---|---|
 | `internal/game/dice_test.go` | `Roll` always stays in range (1000 rolls per formula), invalid or too big formulas return an error |
 | `internal/game/spell_test.go` | `NewSpell` extracts the dice, detects healing spells, rejects spells without dice |
-| `internal/game/fight_test.go` | Attacks always hit AC 0 and miss AC 100, monsters without damage actions do nothing, `Win` gives the right XP and level-ups |
-| `internal/game/validate_test.go` | Broken characters (level, XP, HP, armor class, gold, dice) are rejected, levels stop at the maximum |
+| `internal/game/fight_test.go` | Attacks always hit AC 0 and miss AC 100, monsters without usable damage actions do nothing, `Win` gives the right XP and level-ups |
+| `internal/game/validate_test.go` | Broken characters (level not matching XP, HP, armor class, gold, too strong dice, overflowing values) are rejected, levels stop at the maximum |
 | `internal/cache/cache_test.go` | Cache hit, miss and expiry with an injected clock (before, at and after the TTL), the reaper removes only expired entries |
 | `internal/open5e/client_test.go` | Decoding of a monsters page against an `httptest.Server`, second call served from the cache, 404 (`ErrNotFound`) / 500 / invalid JSON errors |
 | `internal/world/world_test.go` | The embedded `world.json` is valid, broken files (bad JSON, unknown start or exit, missing file) are rejected |
-| `internal/repl/repl_test.go` | Too long input lines are skipped without losing the next ones, commands are case-insensitive, invalid commands never change the state, save round trip and rejection of broken saves, ambush guards, articles and slugs |
+| `internal/repl/repl_test.go` | Too long input lines are skipped without losing the next ones, commands are case-insensitive, invalid commands never change the state, save round trip, rejection of broken saves, `save` refusing an invalid game, ambush guards, articles and slugs |
 
 All tests are table-driven where it makes sense.
 

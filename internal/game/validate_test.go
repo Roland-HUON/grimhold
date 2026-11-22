@@ -34,6 +34,12 @@ func TestValidateRejectsBrokenPlayers(t *testing.T) {
 		{"spell with huge dice", func(p *Player) {
 			p.Spells = []Spell{{Slug: "x", Name: "X", Dice: "1d1000"}}
 		}},
+		{"level above its XP", func(p *Player) { p.Level, p.XP, p.MaxHP, p.HP = 6, 810, 70, 70 }},
+		{"XP overflowing", func(p *Player) { p.Level, p.XP = MaxLevel, maxXP+1 }},
+		{"huge max HP", func(p *Player) { p.MaxHP, p.HP = maxHP+1, 1 }},
+		{"huge gold", func(p *Player) { p.Gold = maxGold + 1 }},
+		{"weapon too strong", func(p *Player) { p.Weapon.DamageDice = "100d100" }},
+		{"negative kills", func(p *Player) { p.BestiaryKilled["goblin"] = -1 }},
 	}
 
 	for _, tt := range tests {
@@ -44,6 +50,15 @@ func TestValidateRejectsBrokenPlayers(t *testing.T) {
 				t.Error("expected an error, got nil")
 			}
 		})
+	}
+}
+
+func TestValidateAcceptsConsistentHighLevel(t *testing.T) {
+	p := NewPlayer()
+	p.Level, p.XP, p.MaxHP, p.HP, p.AttackBonus = 6, 1300, 70, 35, 8
+	p.Weapon = Weapon{Slug: "greataxe", Name: "Greataxe", DamageDice: "1d12"}
+	if err := p.Validate(); err != nil {
+		t.Fatalf("a consistent level 6 player must be valid: %v", err)
 	}
 }
 

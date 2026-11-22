@@ -34,7 +34,8 @@ func tryAmbush(cfg *Config) bool {
 		fmt.Println("Error:", err)
 		return true
 	}
-	fmt.Print(colorize(fmt.Sprintf("\nAmbush! %s leaps out of the shadows!\n", capitalize(withArticle(cfg.CurrentFoe.Name))), colorRed))
+	fmt.Println()
+	fmt.Println(colorize(fmt.Sprintf("Ambush! %s leaps out of the shadows!", capitalize(withArticle(cfg.CurrentFoe.Name))), colorRed))
 
 	if err := monsterTurn(cfg); err != nil {
 		fmt.Println("Error:", err)

@@ -15,6 +15,8 @@ import (
 
 const baseURL = "https://api.open5e.com/v1/"
 
+const maxWeaponPages = 10
+
 var ErrNotFound = errors.New("not found")
 
 type Client struct {
@@ -98,19 +100,23 @@ func (c *Client) GetPage(pageURL string) (MonstersPage, error) {
 }
 
 func (c *Client) GetWeapons() ([]Weapon, error) {
-	var page WeaponsPage
 	var equipment []Weapon
-	data, err := c.fetch(baseURL + "weapons/?limit=100")
-	if err != nil {
-		return nil, fmt.Errorf("fetching weapons: %w", err)
-	}
-	if err := json.Unmarshal(data, &page); err != nil {
-		return nil, fmt.Errorf("decoding page %q: %w", baseURL+"weapons/?limit=100", err)
-	}
-	for _, weapon := range page.Results {
-		if strings.Contains(weapon.DamageDice, "d") {
-			equipment = append(equipment, weapon)
+	pageURL := baseURL + "weapons/?limit=100"
+	for pages := 0; pageURL != "" && pages < maxWeaponPages; pages++ {
+		data, err := c.fetch(pageURL)
+		if err != nil {
+			return nil, fmt.Errorf("fetching weapons: %w", err)
 		}
+		var page WeaponsPage
+		if err := json.Unmarshal(data, &page); err != nil {
+			return nil, fmt.Errorf("decoding page %q: %w", pageURL, err)
+		}
+		for _, weapon := range page.Results {
+			if strings.Contains(weapon.DamageDice, "d") {
+				equipment = append(equipment, weapon)
+			}
+		}
+		pageURL = page.NextURL
 	}
 	return equipment, nil
 }

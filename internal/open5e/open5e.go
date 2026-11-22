@@ -33,6 +33,7 @@ type Weapon struct {
 }
 
 type WeaponsPage struct {
+	NextURL string   `json:"next"`
 	Results []Weapon `json:"results"`
 }
 
