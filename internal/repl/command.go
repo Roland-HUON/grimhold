@@ -151,6 +151,9 @@ func commandMap(cfg *Config, args []string) error {
 		} else {
 			fmt.Printf("   Name: %s\nDanger level: %s\nExits: %s\n", region.Name, colorize(fmt.Sprint(region.Danger), dangerColor(region.Danger)), strings.Join(region.Exits, ", "))
 		}
+		if region.MinLevel > 0 {
+			fmt.Printf("Boss lair: requires level %d\n", region.MinLevel)
+		}
 	}
 	return nil
 }
@@ -290,10 +293,14 @@ func commandTravel(cfg *Config, args []string) error {
 	if !slices.Contains(currentRegion.Exits, destID) {
 		return fmt.Errorf("you can't reach %s from %s", destID, currentRegion.Name)
 	}
+	if cfg.Player.Level < region.MinLevel {
+		return fmt.Errorf("%s is sealed: you must be level %d to enter (you are level %d)", region.Name, region.MinLevel, cfg.Player.Level)
+	}
 	cfg.IDCurrentRegion = region.ID
 	cfg.HasRested = false
 	cfg.CanLoot = false
 	fmt.Printf("You arrive at %s\n", region.Name)
+	warnPrefetch(prefetchFoes(cfg.Client, region))
 	return nil
 }
 
@@ -346,6 +353,9 @@ func commandExplore(cfg *Config, args []string) error {
 	region, ok := world.FindRegionByID(cfg.World, cfg.IDCurrentRegion)
 	if !ok {
 		return errors.New("not found the current region")
+	}
+	if region.Boss != "" {
+		return encounterBoss(cfg, region)
 	}
 	if len(region.Foes) == 0 {
 		return errors.New("nothing lurks here")
@@ -455,10 +465,23 @@ func commandFight(cfg *Config, args []string) error {
 }
 
 func winFight(cfg *Config) {
+	region, ok := world.FindRegionByID(cfg.World, cfg.IDCurrentRegion)
+	isBoss := ok && region.Boss != "" && region.Boss == cfg.CurrentFoe.Slug
+
 	reward := cfg.Player.Win(cfg.CurrentFoe)
-	fmt.Printf("The %s falls!\nYou gained %d XP and %d gold.\n", cfg.CurrentFoe.Name, reward.XP, reward.Gold)
+	if isBoss {
+		fmt.Printf("%s falls!\n", cfg.CurrentFoe.Name)
+	} else {
+		fmt.Printf("The %s falls!\n", cfg.CurrentFoe.Name)
+	}
+	fmt.Printf("You gained %d XP and %d gold.\n", reward.XP, reward.Gold)
 	if reward.LevelsGained >= 1 {
 		fmt.Printf("Level up! You are now level %d.\n", cfg.Player.Level)
+	}
+	if isBoss {
+		cfg.Player.BossesSlain = append(cfg.Player.BossesSlain, region.Boss)
+		banner := fmt.Sprintf("*** %s is no more. %s falls silent forever. ***", cfg.CurrentFoe.Name, region.Name)
+		fmt.Println(colorize(banner, colorBold+colorMagenta))
 	}
 	cfg.CanLoot = true
 	cfg.CurrentFoe = nil
@@ -487,6 +510,7 @@ func monsterTurn(cfg *Config) error {
 			return errors.New("not found the starting region")
 		}
 		fmt.Printf("You have been slain...\nYou wake up at %s with 1 HP, your pride wounded.\n", region.Name)
+		warnPrefetch(prefetchFoes(cfg.Client, region))
 	}
 	return nil
 }
@@ -630,6 +654,7 @@ func commandLoad(cfg *Config, args []string) error {
 	cfg.CanLoot = false
 	cfg.CurrentFoe = nil
 	fmt.Printf("Game loaded. You are at %s.\n", region.Name)
+	warnPrefetch(prefetchFoes(cfg.Client, region))
 	return nil
 }
 

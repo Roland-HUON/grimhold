@@ -55,7 +55,18 @@
       "description": "The air burns your lungs. Ash falls upward here, and the dead do not stay in their alcoves.",
       "danger": 4,
       "foes": ["wraith", "mummy", "vampire-spawn", "troll"],
-      "exits": ["drowned-chapel", "hollow-keep"]
+      "exits": ["drowned-chapel", "hollow-keep", "manticore-spire"]
+    },
+    {
+      "id": "manticore-spire",
+      "name": "The Manticore Spire",
+      "description": "A tower of fused bones rises above the ash. Spikes litter the stairs, and something with a lion's roar and a man's laugh waits at the top.",
+      "danger": 5,
+      "min_level": 6,
+      "boss": "manticore",
+      "boss_title": "Vexhara, Queen of the Spire",
+      "foes": [],
+      "exits": ["cinder-crypt"]
     }
   ]
 }

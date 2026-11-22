@@ -19,6 +19,7 @@ type Player struct {
 	Spells         []Spell        `json:"spells"`
 	Gold           int            `json:"gold"`
 	BestiaryKilled map[string]int `json:"bestiary_killed"`
+	BossesSlain    []string       `json:"bosses_slain"`
 }
 
 func NewPlayer() *Player {

@@ -13,6 +13,9 @@ type Region struct {
 	Danger      int      `json:"danger"`
 	Foes        []string `json:"foes"`
 	Exits       []string `json:"exits"`
+	MinLevel    int      `json:"min_level,omitempty"`
+	Boss        string   `json:"boss,omitempty"`
+	BossTitle   string   `json:"boss_title,omitempty"`
 }
 
 type World struct {

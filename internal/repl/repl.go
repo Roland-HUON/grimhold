@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/Roland-HUON/grimhold/internal/game"
+	"github.com/Roland-HUON/grimhold/internal/world"
 )
 
 var starterSpells = []string{"fire-bolt", "ray-of-frost", "thunderwave", "burning-hands", "guiding-bolt", "cure-wounds", "healing-word"}
@@ -22,6 +23,9 @@ func Start(cfg *Config) error {
 	if !chooseSpells(cfg, scanner) {
 		fmt.Println("Bye!")
 		return nil
+	}
+	if start, ok := world.FindRegionByID(cfg.World, cfg.IDCurrentRegion); ok {
+		warnPrefetch(prefetchFoes(cfg.Client, start))
 	}
 
 	for {
