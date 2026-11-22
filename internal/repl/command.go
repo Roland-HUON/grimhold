@@ -19,6 +19,7 @@ var errExit = errors.New("exit")
 type Config struct {
 	World           world.World
 	IDCurrentRegion string
+	HasRested       bool
 	Client          *open5e.Client
 	Player          *game.Player
 	CurrentFoe      *open5e.Monster
@@ -63,6 +64,11 @@ func getCommands() map[string]cliCommand {
 			Name:        "travel <region>",
 			Description: "Travel to a connected region",
 			Callback:    commandTravel,
+		},
+		"rest": {
+			Name:        "rest",
+			Description: "Rest once per region to restore full HP",
+			Callback:    commandRest,
 		},
 		"fight": {
 			Name:        "fight",
@@ -224,7 +230,21 @@ func commandTravel(cfg *Config, args []string) error {
 		return fmt.Errorf("you can't reach %s from %s", destID, currentRegion.Name)
 	}
 	cfg.IDCurrentRegion = region.ID
-	fmt.Printf("you arrived to the region %s\n", region.Name)
+	cfg.HasRested = false
+	fmt.Printf("You arrive at %s\n", region.Name)
+	return nil
+}
+
+func commandRest(cfg *Config, args []string) error {
+	if cfg.CurrentFoe != nil {
+		return fmt.Errorf("you can't rest while fighting %s, fight or flee", cfg.CurrentFoe.Name)
+	}
+	if cfg.HasRested {
+		return errors.New("you have already rested in this region")
+	}
+	cfg.Player.HP = cfg.Player.MaxHP
+	cfg.HasRested = true
+	fmt.Printf("You rest by the fire. HP: %d/%d\n", cfg.Player.HP, cfg.Player.MaxHP)
 	return nil
 }
 
@@ -334,6 +354,7 @@ func monsterTurn(cfg *Config) error {
 		cfg.Player.Defeat()
 		cfg.CurrentFoe = nil
 		cfg.IDCurrentRegion = cfg.World.Start
+		cfg.HasRested = false
 		region, ok := world.FindRegionByID(cfg.World, cfg.IDCurrentRegion)
 		if !ok {
 			return errors.New("not found the starting region")
