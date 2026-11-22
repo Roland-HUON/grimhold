@@ -291,13 +291,13 @@ func commandFight(cfg *Config, args []string) error {
 	}
 	if cfg.Player.HP <= 0 {
 		cfg.Player.Defeat()
+		cfg.CurrentFoe = nil
 		cfg.IDCurrentRegion = cfg.World.Start
 		region, ok := world.FindRegionByID(cfg.World, cfg.IDCurrentRegion)
 		if !ok {
 			return errors.New("not found the starting region")
 		}
 		fmt.Printf("You have been slain...\nYou wake up at %s with 1 HP, your pride wounded.\n", region.Name)
-		cfg.CurrentFoe = nil
 		return nil
 	}
 
