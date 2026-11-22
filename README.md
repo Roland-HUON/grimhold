@@ -38,7 +38,8 @@ go build -o grimhold.exe ./cmd/grimhold
 .\grimhold.exe
 ```
 
-The game can be started from any directory. `save.json` is written to and read
+The built binary can be started from any directory (`go run` must be run from
+the project root). `save.json` is written to and read
 from the current directory.
 
 Colors are used when the output is a terminal that supports them (enabled
