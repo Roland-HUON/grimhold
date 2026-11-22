@@ -192,7 +192,7 @@ func commandCharacter(cfg *Config, args []string) error {
 	fmt.Printf("- %-18s %d\n", "Damage Bonus:", cfg.Player.Weapon.DamageBonus)
 	fmt.Printf("%-20s %d\n", "Gold:", cfg.Player.Gold)
 	if len(cfg.Player.BestiaryKilled) == 0 {
-		fmt.Printf("Bestiary killed : None yet\n")
+		fmt.Printf("Bestiary killed: None yet\n")
 	} else {
 		fmt.Printf("Bestiary killed:\n")
 		for _, monster := range slices.Sorted(maps.Keys(cfg.Player.BestiaryKilled)) {
