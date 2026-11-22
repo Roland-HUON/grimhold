@@ -16,6 +16,7 @@ type Player struct {
 	ArmorClass     int            `json:"armor_class"`
 	Weapon         Weapon         `json:"weapon"`
 	Inventory      []Weapon       `json:"inventory"`
+	Spells         []Spell        `json:"spells"`
 	Gold           int            `json:"gold"`
 	BestiaryKilled map[string]int `json:"bestiary_killed"`
 }

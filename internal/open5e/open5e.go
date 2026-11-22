@@ -35,3 +35,9 @@ type Weapon struct {
 type WeaponsPage struct {
 	Results []Weapon `json:"results"`
 }
+
+type Spell struct {
+	Slug        string `json:"slug"`
+	Name        string `json:"name"`
+	Description string `json:"desc"`
+}

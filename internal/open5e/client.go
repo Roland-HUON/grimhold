@@ -105,3 +105,17 @@ func (c *Client) GetWeapons() ([]Weapon, error) {
 	}
 	return equipment, nil
 }
+
+func (c *Client) GetSpell(slug string) (Spell, error) {
+	data, err := c.fetch(baseURL + "spells/" + url.PathEscape(slug) + "/")
+	if err != nil {
+		return Spell{}, fmt.Errorf("fetching spells %q: %w", slug, err)
+	}
+
+	var spell Spell
+	if err := json.Unmarshal(data, &spell); err != nil {
+		return Spell{}, fmt.Errorf("decoding spell %q: %w", slug, err)
+	}
+
+	return spell, nil
+}

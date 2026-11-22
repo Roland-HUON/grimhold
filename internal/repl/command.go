@@ -85,6 +85,11 @@ func getCommands() map[string]cliCommand {
 			Description: "Take what will be yours",
 			Callback:    commandLoot,
 		},
+		"cast": {
+			Name:        "cast <spell>",
+			Description: "Cast a spell",
+			Callback:    commandCast,
+		},
 		"fight": {
 			Name:        "fight",
 			Description: "Fight for your life",
@@ -217,6 +222,23 @@ func commandCharacter(cfg *Config, args []string) error {
 			fmt.Printf("- %-25s -> equip %s\n", label, weapon.Slug)
 		}
 	}
+	if len(cfg.Player.Spells) == 0 {
+		fmt.Printf("Spells: none\n")
+	} else {
+		fmt.Printf("Spells:\n")
+		for _, spell := range cfg.Player.Spells {
+			kind := "damage"
+			if spell.Heal {
+				kind = "heal"
+			}
+			state := "ready"
+			if spell.Used {
+				state = "spent"
+			}
+			label := fmt.Sprintf("%s (%s, %s)", spell.Name, spell.Dice, kind)
+			fmt.Printf("- %-28s %-6s -> cast %s\n", label, state, spell.Slug)
+		}
+	}
 	if len(cfg.Player.BestiaryKilled) == 0 {
 		fmt.Printf("Bestiary killed: None yet\n")
 	} else {
@@ -283,8 +305,14 @@ func commandRest(cfg *Config, args []string) error {
 		return errors.New("you have already rested in this region")
 	}
 	cfg.Player.HP = cfg.Player.MaxHP
+	for i := range cfg.Player.Spells {
+		cfg.Player.Spells[i].Used = false
+	}
 	cfg.HasRested = true
 	fmt.Printf("You rest by the fire. HP: %d/%d\n", cfg.Player.HP, cfg.Player.MaxHP)
+	if len(cfg.Player.Spells) > 0 {
+		fmt.Println("Your spells are ready again.")
+	}
 	return nil
 }
 
@@ -413,13 +441,7 @@ func commandFight(cfg *Config, args []string) error {
 		fmt.Printf("You swing your %s (%d vs %d): miss.\n", cfg.Player.Weapon.Name, playerDamage.Roll, cfg.CurrentFoe.ArmorClass)
 	}
 	if cfg.CurrentFoe.HP <= 0 {
-		reward := cfg.Player.Win(cfg.CurrentFoe)
-		fmt.Printf("The %s falls!\nYou gained %d XP and %d gold.\n", cfg.CurrentFoe.Name, reward.XP, reward.Gold)
-		if reward.LevelsGained >= 1 {
-			fmt.Printf("Level up! You are now level %d.\n", cfg.Player.Level)
-		}
-		cfg.CanLoot = true
-		cfg.CurrentFoe = nil
+		winFight(cfg)
 		return nil
 	}
 	if err := monsterTurn(cfg); err != nil {
@@ -430,6 +452,16 @@ func commandFight(cfg *Config, args []string) error {
 	}
 	fmt.Printf("You: %s | %s: %s\n", hpBar(cfg.Player.HP, cfg.Player.MaxHP, 10), cfg.CurrentFoe.Name, hpBar(cfg.CurrentFoe.HP, cfg.CurrentFoeMaxHP, 10))
 	return nil
+}
+
+func winFight(cfg *Config) {
+	reward := cfg.Player.Win(cfg.CurrentFoe)
+	fmt.Printf("The %s falls!\nYou gained %d XP and %d gold.\n", cfg.CurrentFoe.Name, reward.XP, reward.Gold)
+	if reward.LevelsGained >= 1 {
+		fmt.Printf("Level up! You are now level %d.\n", cfg.Player.Level)
+	}
+	cfg.CanLoot = true
+	cfg.CurrentFoe = nil
 }
 
 func monsterTurn(cfg *Config) error {
@@ -457,6 +489,62 @@ func monsterTurn(cfg *Config) error {
 		fmt.Printf("You have been slain...\nYou wake up at %s with 1 HP, your pride wounded.\n", region.Name)
 	}
 	return nil
+}
+
+func commandCast(cfg *Config, args []string) error {
+	if len(args) != 1 {
+		return errors.New("usage: cast <spell>")
+	}
+	index := -1
+	for i := range cfg.Player.Spells {
+		if cfg.Player.Spells[i].Slug == args[0] {
+			index = i
+		}
+	}
+	if index == -1 {
+		return fmt.Errorf("you don't know %q", args[0])
+	}
+
+	spell := &cfg.Player.Spells[index]
+	if spell.Used {
+		return fmt.Errorf("%s is spent, rest to recover it", spell.Name)
+	}
+	if !spell.Heal && cfg.CurrentFoe == nil {
+		return errors.New("no target, try explore")
+	}
+	if spell.Heal && cfg.Player.HP >= cfg.Player.MaxHP {
+		return errors.New("you are already at full health")
+	}
+	amount, err := game.Roll(spell.Dice)
+	if err != nil {
+		return fmt.Errorf("casting %s: %w", spell.Name, err)
+	}
+	spell.Used = true
+	if spell.Heal {
+		before := cfg.Player.HP
+		cfg.Player.HP = min(cfg.Player.HP+amount, cfg.Player.MaxHP)
+		fmt.Printf("You cast %s and recover %d HP. %s\n", spell.Name, cfg.Player.HP-before, hpBar(cfg.Player.HP, cfg.Player.MaxHP, 10))
+	} else {
+		cfg.CurrentFoe.HP -= amount
+		fmt.Printf("You cast %s: the %s takes %d damage.\n", spell.Name, cfg.CurrentFoe.Name, amount)
+	}
+
+	if cfg.CurrentFoe == nil {
+		return nil
+	}
+	if cfg.CurrentFoe.HP <= 0 {
+		winFight(cfg)
+		return nil
+	}
+	if err := monsterTurn(cfg); err != nil {
+		return err
+	}
+	if cfg.CurrentFoe == nil {
+		return nil
+	}
+	fmt.Printf("You: %s | %s: %s\n", hpBar(cfg.Player.HP, cfg.Player.MaxHP, 10), cfg.CurrentFoe.Name, hpBar(cfg.CurrentFoe.HP, cfg.CurrentFoeMaxHP, 10))
+	return nil
+
 }
 
 func commandFlee(cfg *Config, args []string) error {
