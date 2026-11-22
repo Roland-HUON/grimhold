@@ -26,6 +26,7 @@ type Config struct {
 	Client          *open5e.Client
 	Player          *game.Player
 	CurrentFoe      *open5e.Monster
+	CurrentFoeMaxHP int
 	BestiaryPrevURL string
 	BestiaryNextURL string
 }
@@ -112,7 +113,7 @@ func getCommands() map[string]cliCommand {
 }
 
 func commandHelp(cfg *Config, args []string) error {
-	fmt.Println("Grimhold — a dungeon crawler \n \n Commands:")
+	fmt.Print("Grimhold — a dungeon crawler\n\nCommands:\n")
 	cmds := getCommands()
 	for _, name := range slices.Sorted(maps.Keys(cmds)) {
 		fmt.Printf("%-20s %s\n", cmds[name].Name, cmds[name].Description)
@@ -125,9 +126,9 @@ func commandMap(cfg *Config, args []string) error {
 
 	for _, region := range regions {
 		if cfg.IDCurrentRegion == region.ID {
-			fmt.Printf("-> Name: %s\nDanger level: %d\nExits: %s (you are here)\n", region.Name, region.Danger, strings.Join(region.Exits, ", "))
+			fmt.Printf("-> Name: %s\nDanger level: %s\nExits: %s (you are here)\n", region.Name, colorize(fmt.Sprint(region.Danger), dangerColor(region.Danger)), strings.Join(region.Exits, ", "))
 		} else {
-			fmt.Printf("   Name: %s\nDanger level: %d\nExits: %s\n", region.Name, region.Danger, strings.Join(region.Exits, ", "))
+			fmt.Printf("   Name: %s\nDanger level: %s\nExits: %s\n", region.Name, colorize(fmt.Sprint(region.Danger), dangerColor(region.Danger)), strings.Join(region.Exits, ", "))
 		}
 	}
 	return nil
@@ -182,7 +183,7 @@ func commandBestiary(cfg *Config, args []string) error {
 
 func commandCharacter(cfg *Config, args []string) error {
 	fmt.Printf("%-20s %d\n", "Level:", cfg.Player.Level)
-	fmt.Printf("%-20s %d/%d\n", "HP:", cfg.Player.HP, cfg.Player.MaxHP)
+	fmt.Printf("%-20s %s\n", "HP:", hpBar(cfg.Player.HP, cfg.Player.MaxHP, 20))
 	fmt.Printf("%-20s %d/%d\n", "XP:", cfg.Player.XP, cfg.Player.NextLevelXP())
 	fmt.Printf("%-20s %d\n", "Attack Bonus:", cfg.Player.AttackBonus)
 	fmt.Printf("%-20s %d\n", "Armor Class:", cfg.Player.ArmorClass)
@@ -280,7 +281,7 @@ func commandLook(cfg *Config, args []string) error {
 	default:
 		dangerWarning = "This place belong to the void, a place known to no one, yet it seems like I remember this place... A place where time and space belong to these creatures lurking in the void, where no living beings has ever set foot on this land."
 	}
-	fmt.Printf("Name: %s\nDescription: %s\nExits: %s\nDanger: %s\n", region.Name, region.Description, strings.Join(region.Exits, ", "), dangerWarning)
+	fmt.Printf("Name: %s\nDescription: %s\nExits: %s\nDanger: %s\n", region.Name, region.Description, strings.Join(region.Exits, ", "), colorize(dangerWarning, dangerColor(region.Danger)))
 	return nil
 }
 
@@ -314,6 +315,7 @@ func commandExplore(cfg *Config, args []string) error {
 		}
 	}
 	cfg.CurrentFoe = worstMonsterFind
+	cfg.CurrentFoeMaxHP = cfg.CurrentFoe.HP
 	fmt.Printf("A %s emerges from the shadow! (HP %d, Armor class %d)\nType 'fight' to attack or 'flee' to run.\n", cfg.CurrentFoe.Name, cfg.CurrentFoe.HP, cfg.CurrentFoe.ArmorClass)
 	return nil
 }
@@ -347,7 +349,7 @@ func commandFight(cfg *Config, args []string) error {
 	if cfg.CurrentFoe == nil {
 		return nil
 	}
-	fmt.Printf("You: %d/%d HP | %s: %d HP\n", cfg.Player.HP, cfg.Player.MaxHP, cfg.CurrentFoe.Name, cfg.CurrentFoe.HP)
+	fmt.Printf("You: %s | %s: %s\n", hpBar(cfg.Player.HP, cfg.Player.MaxHP, 10), cfg.CurrentFoe.Name, hpBar(cfg.CurrentFoe.HP, cfg.CurrentFoeMaxHP, 10))
 	return nil
 }
 
@@ -394,7 +396,7 @@ func commandFlee(cfg *Config, args []string) error {
 	if cfg.CurrentFoe == nil {
 		return nil
 	}
-	fmt.Printf("You: %d/%d HP | %s: %d HP\n", cfg.Player.HP, cfg.Player.MaxHP, cfg.CurrentFoe.Name, cfg.CurrentFoe.HP)
+	fmt.Printf("You: %s | %s: %s\n", hpBar(cfg.Player.HP, cfg.Player.MaxHP, 10), cfg.CurrentFoe.Name, hpBar(cfg.CurrentFoe.HP, cfg.CurrentFoeMaxHP, 10))
 	return nil
 }
 

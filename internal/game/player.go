@@ -1,21 +1,21 @@
 package game
 
 type Weapon struct {
-	Name        string
-	DamageDice  string
-	DamageBonus int
+	Name        string `json:"name"`
+	DamageDice  string `json:"damage_dice"`
+	DamageBonus int    `json:"damage_bonus"`
 }
 
 type Player struct {
-	HP             int
-	MaxHP          int
-	XP             int
-	Level          int
-	AttackBonus    int
-	ArmorClass     int
-	Weapon         Weapon
-	Gold           int
-	BestiaryKilled map[string]int
+	HP             int            `json:"hp"`
+	MaxHP          int            `json:"max_hp"`
+	XP             int            `json:"xp"`
+	Level          int            `json:"level"`
+	AttackBonus    int            `json:"attack_bonus"`
+	ArmorClass     int            `json:"armor_class"`
+	Weapon         Weapon         `json:"weapon"`
+	Gold           int            `json:"gold"`
+	BestiaryKilled map[string]int `json:"bestiary_killed"`
 }
 
 func NewPlayer() *Player {
