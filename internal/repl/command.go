@@ -360,12 +360,18 @@ func commandExplore(cfg *Config, args []string) error {
 	if len(region.Foes) == 0 {
 		return errors.New("nothing lurks here")
 	}
+	if err := spawnFoe(cfg, region); err != nil {
+		return err
+	}
+	fmt.Printf("A %s emerges from the shadow! (HP %d, Armor class %d)\nType 'fight' to attack or 'flee' to run.\n", cfg.CurrentFoe.Name, cfg.CurrentFoe.HP, cfg.CurrentFoe.ArmorClass)
+	return nil
+}
 
+func spawnFoe(cfg *Config, region world.Region) error {
 	rolls := region.Danger
 	if rolls < 1 {
 		rolls = 1
 	}
-
 	var worstMonsterFind *open5e.Monster
 	for i := 0; i < rolls; i++ {
 		monsterIndex := rand.IntN(len(region.Foes))
@@ -381,7 +387,6 @@ func commandExplore(cfg *Config, args []string) error {
 	cfg.CanLoot = false
 	cfg.CurrentFoe = worstMonsterFind
 	cfg.CurrentFoeMaxHP = cfg.CurrentFoe.HP
-	fmt.Printf("A %s emerges from the shadow! (HP %d, Armor class %d)\nType 'fight' to attack or 'flee' to run.\n", cfg.CurrentFoe.Name, cfg.CurrentFoe.HP, cfg.CurrentFoe.ArmorClass)
 	return nil
 }
 

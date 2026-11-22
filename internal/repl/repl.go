@@ -7,6 +7,7 @@ import (
 	"os"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/Roland-HUON/grimhold/internal/game"
 	"github.com/Roland-HUON/grimhold/internal/world"
@@ -14,7 +15,10 @@ import (
 
 var starterSpells = []string{"fire-bolt", "ray-of-frost", "thunderwave", "burning-hands", "guiding-bolt", "cure-wounds", "healing-word"}
 
-const spellsToChoose = 2
+const (
+	spellsToChoose = 2
+	ambushEvery    = 20 * time.Second
+)
 
 func Start(cfg *Config) error {
 	scanner := bufio.NewScanner(os.Stdin)
@@ -28,32 +32,57 @@ func Start(cfg *Config) error {
 		warnPrefetch(prefetchFoes(cfg.Client, start))
 	}
 
+	lines := make(chan string)
+	go func() {
+		for scanner.Scan() {
+			lines <- scanner.Text()
+		}
+		close(lines)
+	}()
+
+	ticker := time.NewTicker(ambushEvery)
+	defer ticker.Stop()
+
+	fmt.Print("grimhold > ")
 	for {
-		fmt.Print("grimhold > ")
-
-		if !scanner.Scan() {
-			fmt.Println("Bye!")
-			return nil
-		}
-
-		args := strings.Fields(scanner.Text())
-		if len(args) == 0 {
-			continue
-		}
-
-		cmd, ok := commands[args[0]]
-		if !ok {
-			fmt.Printf("Unknown command %q. Type 'help' for any help.\n", args[0])
-			continue
-		}
-		if err := cmd.Callback(cfg, args[1:]); err != nil {
-			if errors.Is(err, errExit) {
+		select {
+		case line, ok := <-lines:
+			if !ok {
 				fmt.Println("Bye!")
 				return nil
 			}
-			fmt.Println("Error:", err)
+			if handleLine(cfg, commands, line) {
+				fmt.Println("Bye!")
+				return nil
+			}
+			fmt.Print("grimhold > ")
+
+		case <-ticker.C:
+			if tryAmbush(cfg) {
+				fmt.Print("grimhold > ")
+			}
 		}
 	}
+}
+
+func handleLine(cfg *Config, commands map[string]cliCommand, line string) bool {
+	args := strings.Fields(line)
+	if len(args) == 0 {
+		return false
+	}
+
+	cmd, ok := commands[args[0]]
+	if !ok {
+		fmt.Printf("Unknown command %q. Type 'help' for any help.\n", args[0])
+		return false
+	}
+	if err := cmd.Callback(cfg, args[1:]); err != nil {
+		if errors.Is(err, errExit) {
+			return true
+		}
+		fmt.Println("Error:", err)
+	}
+	return false
 }
 
 func chooseSpells(cfg *Config, scanner *bufio.Scanner) bool {
