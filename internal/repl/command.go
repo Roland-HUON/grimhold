@@ -170,6 +170,10 @@ func commandInspect(cfg *Config, args []string) error {
 }
 
 func commandTravel(cfg *Config, args []string) error {
+	if cfg.CurrentFoe != nil {
+		fmt.Printf("You cannot travel while fighting")
+		return nil
+	}
 	if len(args) != 1 {
 		return errors.New("usage: travel <region>")
 	}
@@ -265,7 +269,11 @@ func commandFight(cfg *Config, args []string) error {
 		fmt.Printf("You swing your %s (%d vs %d): miss.\n", cfg.Player.Weapon.Name, playerDamage.Roll, cfg.CurrentFoe.ArmorClass)
 	}
 	if cfg.CurrentFoe.HP <= 0 {
-		fmt.Printf("The %s falls!\n", cfg.CurrentFoe.Name)
+		reward := cfg.Player.Win(cfg.CurrentFoe)
+		fmt.Printf("The %s falls!\nYou gained %d XP and %d gold.\n", cfg.CurrentFoe.Name, reward.XP, reward.Gold)
+		if reward.LevelsGained >= 1 {
+			fmt.Printf("Level up! You are now level %d.\n", cfg.Player.Level)
+		}
 		cfg.CurrentFoe = nil
 		return nil
 	}
@@ -282,7 +290,13 @@ func commandFight(cfg *Config, args []string) error {
 		fmt.Printf("%s uses %s (%d vs %d): miss.\n", cfg.CurrentFoe.Name, monsterDamage.ActionName, monsterDamage.Roll, cfg.Player.ArmorClass)
 	}
 	if cfg.Player.HP <= 0 {
-		fmt.Println("You have been slain...")
+		cfg.Player.Defeat()
+		cfg.IDCurrentRegion = cfg.World.Start
+		region, ok := world.FindRegionByID(cfg.World, cfg.IDCurrentRegion)
+		if !ok {
+			return errors.New("not found the starting region")
+		}
+		fmt.Printf("You have been slain...\nYou wake up at %s with 1 HP, your pride wounded.\n", region.Name)
 		cfg.CurrentFoe = nil
 		return nil
 	}

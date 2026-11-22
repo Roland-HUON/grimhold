@@ -14,6 +14,12 @@ type AttackResult struct {
 	Damage     int
 }
 
+type VictoryReward struct {
+	XP           int
+	Gold         int
+	LevelsGained int
+}
+
 func PlayerAttack(p *Player, m *open5e.Monster) (AttackResult, error) {
 	result := AttackResult{
 		ActionName: p.Weapon.Name,
@@ -68,4 +74,33 @@ func MonsterAttack(m *open5e.Monster, p *Player) (AttackResult, error) {
 	p.HP -= result.Damage
 
 	return result, nil
+}
+
+func (p *Player) Win(m *open5e.Monster) VictoryReward {
+	var levelGained int
+
+	xp := int(m.CR * 100)
+	if xp < 10 {
+		xp = 10
+	}
+	gold := RollDie(6) + int(m.CR*10)*RollDie(6)
+	p.XP += xp
+	p.Gold += gold
+	p.BestiaryKilled[m.Slug]++
+	for p.XP >= p.Level*p.Level*50 {
+		p.Level++
+		p.MaxHP += 10
+		p.HP = p.MaxHP
+		p.AttackBonus += 1
+		levelGained++
+	}
+
+	return VictoryReward{
+		XP:           xp,
+		Gold:         gold,
+		LevelsGained: levelGained,
+	}
+}
+func (p *Player) Defeat() {
+	p.HP = 1
 }
