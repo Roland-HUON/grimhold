@@ -232,3 +232,32 @@ func TestShorten(t *testing.T) {
 		t.Errorf("shorten(long) = %q", got)
 	}
 }
+
+func TestFightGoesOnUntilSomeoneFalls(t *testing.T) {
+	cfg := &Config{World: testWorld(t), IDCurrentRegion: "crossroads", Player: game.NewPlayer()}
+	cfg.CurrentFoe = &open5e.Monster{Slug: "giant-rat", Name: "Giant Rat", HP: 40, ArmorClass: 0}
+	cfg.CurrentFoeMaxHP = 40
+
+	if err := commandFight(cfg, nil); err != nil {
+		t.Fatal(err)
+	}
+	if cfg.CurrentFoe != nil {
+		t.Fatal("one 'fight' should go on until the foe falls")
+	}
+	if cfg.Player.BestiaryKilled["giant-rat"] != 1 {
+		t.Error("the foe should be recorded in the bestiary")
+	}
+}
+
+func TestFightStopsWhenNobodyCanHit(t *testing.T) {
+	cfg := &Config{World: testWorld(t), IDCurrentRegion: "crossroads", Player: game.NewPlayer()}
+	cfg.CurrentFoe = &open5e.Monster{Slug: "wall", Name: "Wall", HP: 10, ArmorClass: 100}
+	cfg.CurrentFoeMaxHP = 10
+
+	if err := commandFight(cfg, nil); err != nil {
+		t.Fatal(err)
+	}
+	if cfg.CurrentFoe == nil || cfg.CurrentFoe.HP != 10 {
+		t.Error("the fight should stop after maxFightRounds and keep the foe")
+	}
+}

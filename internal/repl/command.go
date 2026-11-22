@@ -13,6 +13,8 @@ import (
 	"github.com/Roland-HUON/grimhold/internal/world"
 )
 
+const maxFightRounds = 50
+
 var errExit = errors.New("exit")
 
 type Config struct {
@@ -95,7 +97,7 @@ func getCommands() map[string]cliCommand {
 		},
 		"fight": {
 			name:        "fight",
-			description: "Play one round of combat",
+			description: "Fight until you or your foe falls",
 			callback:    commandFight,
 		},
 		"flee": {
@@ -464,26 +466,29 @@ func commandFight(cfg *Config, args []string) error {
 		return errors.New("nothing to fight, try explore")
 	}
 
-	playerDamage, err := game.PlayerAttack(cfg.Player, cfg.CurrentFoe)
-	if err != nil {
-		return fmt.Errorf("player attack: %w", err)
+	for round := 0; round < maxFightRounds; round++ {
+		playerDamage, err := game.PlayerAttack(cfg.Player, cfg.CurrentFoe)
+		if err != nil {
+			return fmt.Errorf("player attack: %w", err)
+		}
+		if playerDamage.Hit {
+			fmt.Printf("You swing your %s (%d vs %d): hit for %d damage.\n", cfg.Player.Weapon.Name, playerDamage.Roll, cfg.CurrentFoe.ArmorClass, playerDamage.Damage)
+		} else {
+			fmt.Printf("You swing your %s (%d vs %d): miss.\n", cfg.Player.Weapon.Name, playerDamage.Roll, cfg.CurrentFoe.ArmorClass)
+		}
+		if cfg.CurrentFoe.HP <= 0 {
+			winFight(cfg)
+			return nil
+		}
+		if err := monsterTurn(cfg); err != nil {
+			return err
+		}
+		if cfg.CurrentFoe == nil {
+			return nil
+		}
+		fmt.Printf("You: %s | %s: %s\n", hpBar(cfg.Player.HP, cfg.Player.MaxHP, 10), cfg.CurrentFoe.Name, hpBar(cfg.CurrentFoe.HP, cfg.CurrentFoeMaxHP, 10))
 	}
-	if playerDamage.Hit {
-		fmt.Printf("You swing your %s (%d vs %d): hit for %d damage.\n", cfg.Player.Weapon.Name, playerDamage.Roll, cfg.CurrentFoe.ArmorClass, playerDamage.Damage)
-	} else {
-		fmt.Printf("You swing your %s (%d vs %d): miss.\n", cfg.Player.Weapon.Name, playerDamage.Roll, cfg.CurrentFoe.ArmorClass)
-	}
-	if cfg.CurrentFoe.HP <= 0 {
-		winFight(cfg)
-		return nil
-	}
-	if err := monsterTurn(cfg); err != nil {
-		return err
-	}
-	if cfg.CurrentFoe == nil {
-		return nil
-	}
-	fmt.Printf("You: %s | %s: %s\n", hpBar(cfg.Player.HP, cfg.Player.MaxHP, 10), cfg.CurrentFoe.Name, hpBar(cfg.CurrentFoe.HP, cfg.CurrentFoeMaxHP, 10))
+	fmt.Println("The fight drags on, you step back to catch your breath. Type 'fight' to go on or 'flee' to run.")
 	return nil
 }
 

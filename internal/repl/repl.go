@@ -37,9 +37,6 @@ func Start(cfg *Config) error {
 		fmt.Println("Bye!")
 		return nil
 	}
-	if start, ok := world.FindRegionByID(cfg.World, cfg.IDCurrentRegion); ok {
-		warnPrefetch(prefetchFoes(cfg.Client, start))
-	}
 
 	lines := make(chan input)
 	done := make(chan struct{})
@@ -220,6 +217,9 @@ func chooseSpells(cfg *Config, reader *bufio.Reader) bool {
 		}
 		cfg.Player.Spells = append(cfg.Player.Spells, spell)
 		fmt.Printf("You learned %s (%s).\n", spell.Name, spell.Dice)
+	}
+	if start, ok := world.FindRegionByID(cfg.World, cfg.IDCurrentRegion); ok {
+		warnPrefetch(prefetchFoes(cfg.Client, start))
 	}
 	return true
 }

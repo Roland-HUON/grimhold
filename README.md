@@ -58,7 +58,7 @@ same list, generated from the command map.
 | `look` | Describe the current region |
 | `travel <region>` | Move along an exit of the current region |
 | `explore` | Risk an encounter with a foe of the region |
-| `fight` | Play one combat round (you strike, then the foe strikes back) |
+| `fight` | Fight in rounds (you strike, then the foe strikes back) until one of you falls |
 | `flee` | Try to run away (d20 vs 10, failure gives the foe a free hit) |
 | `cast <spell>` | Cast a spell (once per rest) |
 | `rest` | Full heal and spells recharged, once per region visit |
@@ -75,8 +75,9 @@ Commands are case-insensitive, and multi-word names are turned into slugs:
 `cast Fire Bolt` is the same as `cast fire-bolt`, `travel Ashen Marsh` the same
 as `travel ashen-marsh`.
 
-**Combat**: each `fight` plays one round, so you can `cast` or `flee` between
-rounds. The attack roll is `d20 + attack bonus` against the foe's armor class,
+**Combat**: `fight` plays rounds until you or your foe reaches 0 HP (it stops
+after 50 rounds if nobody can hit, so you can `flee`). Before fighting, you can
+also `cast` a spell or `flee`. The attack roll is `d20 + attack bonus` against the foe's armor class,
 and a hit deals the weapon dice. Higher danger regions roll several foes and
 keep the worst one. Victory gives XP based on the challenge rating (minimum 10),
 gold and a bestiary entry. The next level needs `level² × 50` XP and gives
@@ -125,50 +126,24 @@ Danger: The air feels calm
 grimhold > travel ashen-marsh
 You arrive at Ashen Marsh
 grimhold > explore
-A Skeleton emerges from the shadows! (HP 13, Armor class 13)
+A Ghoul emerges from the shadows! (HP 22, Armor class 12)
 Type 'fight' to attack or 'flee' to run.
-grimhold > fight
-You swing your Longsword (7 vs 13): miss.
-Skeleton uses Shortbow (23 vs 12): hit for 8 damage.
-You: [██████░░░░] 12/20 HP | Skeleton: [██████████] 13/13 HP
 grimhold > cast fire bolt
-You cast Fire Bolt: the Skeleton takes 10 damage.
-Skeleton uses Shortbow (10 vs 12): miss.
-You: [██████░░░░] 12/20 HP | Skeleton: [██░░░░░░░░] 3/13 HP
+You cast Fire Bolt: the Ghoul takes 5 damage.
+Ghoul uses Bite (17 vs 12): hit for 11 damage.
+You: [████░░░░░░] 9/20 HP | Ghoul: [███████░░░] 17/22 HP
 grimhold > fight
-You swing your Longsword (6 vs 13): miss.
-Skeleton uses Shortbow (21 vs 12): hit for 6 damage.
-You: [███░░░░░░░] 6/20 HP | Skeleton: [██░░░░░░░░] 3/13 HP
-grimhold > fight
-You swing your Longsword (10 vs 13): miss.
-Skeleton uses Shortbow (21 vs 12): hit for 5 damage.
-You: [░░░░░░░░░░] 1/20 HP | Skeleton: [██░░░░░░░░] 3/13 HP
-grimhold > fight
-You swing your Longsword (17 vs 13): hit for 5 damage.
-The Skeleton falls!
-You gained 25 XP and 16 gold.
+You swing your Longsword (13 vs 12): hit for 10 damage.
+Ghoul uses Bite (21 vs 12): hit for 7 damage.
+You: [█░░░░░░░░░] 2/20 HP | Ghoul: [███░░░░░░░] 7/22 HP
+You swing your Longsword (18 vs 12): hit for 10 damage.
+The Ghoul falls!
+You gained 100 XP and 15 gold.
+Level up! You are now level 2.
 grimhold > loot
-You found a Whip (1d4)! Type 'equip whip' to wield it.
-grimhold > character
-Level:               1
-HP:                  [█░░░░░░░░░░░░░░░░░░░] 1/20 HP
-XP:                  25/50
-Attack Bonus:        3
-Armor Class:         12
-Weapon:
-- Name:              Longsword
-- Damage Dice:       1d8
-- Damage Bonus:      2
-Gold:                16
-Inventory:
-- Whip (1d4+0)              -> equip whip
-Spells:
-- Fire Bolt (1d10, damage)     spent  -> cast fire-bolt
-- Cure Wounds (1d8, heal)      ready  -> cast cure-wounds
-Bestiary killed:
-- skeleton x 1
+You search the body... nothing useful.
 grimhold > rest
-You rest by the fire. HP: 20/20
+You rest by the fire. HP: 30/30
 Your spells are ready again.
 grimhold > save
 Game saved.
@@ -251,7 +226,7 @@ No test hits the network.
 | `internal/cache/cache_test.go` | Cache hit, miss and expiry with an injected clock (before, at and after the TTL), the reaper removes only expired entries |
 | `internal/open5e/client_test.go` | Decoding of a monsters page against an `httptest.Server`, second call served from the cache, 404 (`ErrNotFound`) / 500 / invalid JSON errors |
 | `internal/world/world_test.go` | The embedded `world.json` is valid, broken files (bad JSON, unknown start or exit, missing file) are rejected |
-| `internal/repl/repl_test.go` | Too long input lines are skipped without losing the next ones, commands are case-insensitive, invalid commands never change the state, save round trip, rejection of broken saves, `save` refusing an invalid game, ambush guards, articles and slugs |
+| `internal/repl/repl_test.go` | Too long input lines are skipped without losing the next ones, commands are case-insensitive, invalid commands never change the state, save round trip, rejection of broken saves, `save` refusing an invalid game, `fight` going on until someone falls (and stopping if nobody can hit), ambush guards, articles and slugs |
 
 All tests are table-driven where it makes sense.
 
