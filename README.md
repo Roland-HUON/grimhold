@@ -11,27 +11,39 @@ Written in Go, standard library only.
 
 ## Build and run
 
-Requires Go 1.27.4 or newer (the version in `go.mod`) and an internet connection (Open5e).
+Requires Go 1.27.4 or newer (the version in `go.mod`) and an internet connection
+(Open5e). With an older Go (1.21+), the `go` command downloads the right
+toolchain automatically. It works on Linux, macOS and Windows.
+
+The simplest way, the same on every system:
+
+```sh
+go run ./cmd/grimhold
+go run ./cmd/grimhold --continue    # continue a saved game
+```
+
+Or build a binary.
+
+Linux / macOS:
 
 ```sh
 go build -o grimhold ./cmd/grimhold
 ./grimhold
 ```
 
-or directly:
+Windows (PowerShell or cmd):
 
-```sh
-go run ./cmd/grimhold
-```
-
-To continue a saved game directly:
-
-```sh
-./grimhold --continue
+```powershell
+go build -o grimhold.exe ./cmd/grimhold
+.\grimhold.exe
 ```
 
 The game can be started from any directory. `save.json` is written to and read
 from the current directory.
+
+Colors are used when the output is a terminal that supports them (enabled
+automatically on Windows 10+ consoles). They are turned off when the output is
+redirected, or with the `NO_COLOR` environment variable.
 
 ## How to play
 
@@ -245,7 +257,7 @@ All tests are table-driven where it makes sense.
 
 ### ANSI colors
 
-Hand-rolled escape codes: HP bars turn green, yellow then red, the danger of a
+Hand-rolled escape codes (no library): HP bars turn green, yellow then red, the danger of a
 region is colored in `map` and `look`, and boss banners and ambushes stand out.
 Code: `internal/repl/color.go`.
 

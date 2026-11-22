@@ -2,6 +2,7 @@ package repl
 
 import (
 	"fmt"
+	"os"
 	"strings"
 )
 
@@ -14,7 +15,12 @@ const (
 	colorMagenta = "\033[35m"
 )
 
+var colorsEnabled = os.Getenv("NO_COLOR") == "" && terminalSupportsColors()
+
 func colorize(text, color string) string {
+	if !colorsEnabled {
+		return text
+	}
 	return color + text + colorReset
 }
 
