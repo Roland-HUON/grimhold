@@ -15,6 +15,8 @@ import (
 
 const baseURL = "https://api.open5e.com/v1/"
 
+var ErrNotFound = errors.New("not found")
+
 type Client struct {
 	httpClient http.Client
 	cache      *cache.Cache
@@ -25,6 +27,10 @@ func NewClient(timeout time.Duration, ttl time.Duration) *Client {
 		httpClient: http.Client{Timeout: timeout},
 		cache:      cache.NewCache(ttl),
 	}
+}
+
+func (c *Client) Close() {
+	c.cache.Stop()
 }
 
 func (c *Client) fetch(url string) ([]byte, error) {
@@ -40,7 +46,7 @@ func (c *Client) fetch(url string) ([]byte, error) {
 	defer response.Body.Close()
 
 	if response.StatusCode == http.StatusNotFound {
-		return nil, errors.New("not found")
+		return nil, ErrNotFound
 	}
 
 	if response.StatusCode != http.StatusOK {
@@ -66,12 +72,15 @@ func (c *Client) GetMonster(name string) (Monster, error) {
 	if err := json.Unmarshal(data, &monster); err != nil {
 		return Monster{}, fmt.Errorf("decoding monster %q: %w", name, err)
 	}
+	if monster.Slug == "" {
+		return Monster{}, fmt.Errorf("fetching monster %q: %w", name, ErrNotFound)
+	}
 
 	return monster, nil
 }
 
 func (c *Client) GetPage(pageURL string) (MonstersPage, error) {
-	var currentURL string = pageURL
+	currentURL := pageURL
 	if pageURL == "" {
 		currentURL = baseURL + "monsters/?limit=20&format=json"
 	}
@@ -109,12 +118,15 @@ func (c *Client) GetWeapons() ([]Weapon, error) {
 func (c *Client) GetSpell(slug string) (Spell, error) {
 	data, err := c.fetch(baseURL + "spells/" + url.PathEscape(slug) + "/")
 	if err != nil {
-		return Spell{}, fmt.Errorf("fetching spells %q: %w", slug, err)
+		return Spell{}, fmt.Errorf("fetching spell %q: %w", slug, err)
 	}
 
 	var spell Spell
 	if err := json.Unmarshal(data, &spell); err != nil {
 		return Spell{}, fmt.Errorf("decoding spell %q: %w", slug, err)
+	}
+	if spell.Slug == "" {
+		return Spell{}, fmt.Errorf("fetching spell %q: %w", slug, ErrNotFound)
 	}
 
 	return spell, nil

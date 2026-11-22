@@ -1,13 +1,10 @@
 package repl
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io/fs"
 	"maps"
 	"math/rand/v2"
-	"os"
 	"slices"
 	"strings"
 
@@ -29,105 +26,106 @@ type Config struct {
 	CanLoot         bool
 	BestiaryPrevURL string
 	BestiaryNextURL string
+	Continue        bool
 }
 
 type cliCommand struct {
-	Name        string
-	Description string
-	Callback    func(cfg *Config, args []string) error
+	name        string
+	description string
+	callback    func(cfg *Config, args []string) error
 }
 
 func getCommands() map[string]cliCommand {
 	return map[string]cliCommand{
 		"help": {
-			Name:        "help",
-			Description: "Show this message",
-			Callback:    commandHelp,
+			name:        "help",
+			description: "Show this message",
+			callback:    commandHelp,
 		},
 		"map": {
-			Name:        "map",
-			Description: "List the known regions",
-			Callback:    commandMap,
+			name:        "map",
+			description: "List the known regions",
+			callback:    commandMap,
 		},
 		"bestiary": {
-			Name:        "bestiary [next|prev]",
-			Description: "Book of monsters",
-			Callback:    commandBestiary,
+			name:        "bestiary [next|prev]",
+			description: "Browse the monsters of the realm",
+			callback:    commandBestiary,
 		},
 		"character": {
-			Name:        "character",
-			Description: "See the character sheet",
-			Callback:    commandCharacter,
+			name:        "character",
+			description: "Show your character sheet",
+			callback:    commandCharacter,
 		},
 		"inspect": {
-			Name:        "inspect <monster>",
-			Description: "Find information about a monster",
-			Callback:    commandInspect,
+			name:        "inspect <monster>",
+			description: "Show the stat block of a monster",
+			callback:    commandInspect,
 		},
 		"travel": {
-			Name:        "travel <region>",
-			Description: "Travel to a connected region",
-			Callback:    commandTravel,
+			name:        "travel <region>",
+			description: "Travel to a connected region",
+			callback:    commandTravel,
 		},
 		"rest": {
-			Name:        "rest",
-			Description: "Rest once per region to restore full HP",
-			Callback:    commandRest,
+			name:        "rest",
+			description: "Restore HP and spells (once per region visit)",
+			callback:    commandRest,
 		},
 		"equip": {
-			Name:        "equip <weapon>",
-			Description: "Wield a weapon from your bag",
-			Callback:    commandEquip,
+			name:        "equip <weapon>",
+			description: "Wield a weapon from your inventory",
+			callback:    commandEquip,
 		},
 		"loot": {
-			Name:        "loot",
-			Description: "Take what will be yours",
-			Callback:    commandLoot,
+			name:        "loot",
+			description: "Search the body after a victory",
+			callback:    commandLoot,
 		},
 		"cast": {
-			Name:        "cast <spell>",
-			Description: "Cast a spell",
-			Callback:    commandCast,
+			name:        "cast <spell>",
+			description: "Cast a spell (once per rest)",
+			callback:    commandCast,
 		},
 		"fight": {
-			Name:        "fight",
-			Description: "Fight for your life",
-			Callback:    commandFight,
+			name:        "fight",
+			description: "Play one round of combat",
+			callback:    commandFight,
 		},
 		"flee": {
-			Name:        "flee",
-			Description: "Run for your life",
-			Callback:    commandFlee,
+			name:        "flee",
+			description: "Try to run away from the fight",
+			callback:    commandFlee,
 		},
 		"look": {
-			Name:        "look",
-			Description: "Describe your surroundings",
-			Callback:    commandLook,
+			name:        "look",
+			description: "Describe your surroundings",
+			callback:    commandLook,
 		},
 		"explore": {
-			Name:        "explore",
-			Description: "Wander the region (risk an encounter)",
-			Callback:    commandExplore,
+			name:        "explore",
+			description: "Wander the region (risk an encounter)",
+			callback:    commandExplore,
 		},
 		"weapons": {
-			Name:        "weapons",
-			Description: "List of the weapons of the realm.",
-			Callback:    commandWeapons,
+			name:        "weapons",
+			description: "List the weapons of the realm",
+			callback:    commandWeapons,
 		},
 		"save": {
-			Name:        "save",
-			Description: "Save your progression",
-			Callback:    commandSave,
+			name:        "save",
+			description: "Save your progress to save.json",
+			callback:    commandSave,
 		},
 		"load": {
-			Name:        "load",
-			Description: "Load your progression from a JSON file",
-			Callback:    commandLoad,
+			name:        "load",
+			description: "Load your progress from save.json",
+			callback:    commandLoad,
 		},
 		"exit": {
-			Name:        "exit",
-			Description: "You leave",
-			Callback:    commandExit,
+			name:        "exit",
+			description: "Quit the game",
+			callback:    commandExit,
 		},
 	}
 }
@@ -136,7 +134,7 @@ func commandHelp(cfg *Config, args []string) error {
 	fmt.Print("Grimhold — a dungeon crawler\n\nCommands:\n")
 	cmds := getCommands()
 	for _, name := range slices.Sorted(maps.Keys(cmds)) {
-		fmt.Printf("%-20s %s\n", cmds[name].Name, cmds[name].Description)
+		fmt.Printf("  %-22s %s\n", cmds[name].name, cmds[name].description)
 	}
 	return nil
 }
@@ -145,13 +143,17 @@ func commandMap(cfg *Config, args []string) error {
 	regions := cfg.World.Regions
 
 	for _, region := range regions {
+		marker, here := "   ", ""
 		if cfg.IDCurrentRegion == region.ID {
-			fmt.Printf("-> Name: %s\nDanger level: %s\nExits: %s (you are here)\n", region.Name, colorize(fmt.Sprint(region.Danger), dangerColor(region.Danger)), strings.Join(region.Exits, ", "))
-		} else {
-			fmt.Printf("   Name: %s\nDanger level: %s\nExits: %s\n", region.Name, colorize(fmt.Sprint(region.Danger), dangerColor(region.Danger)), strings.Join(region.Exits, ", "))
+			marker, here = "-> ", " (you are here)"
 		}
-		if region.MinLevel > 0 {
-			fmt.Printf("Boss lair: requires level %d\n", region.MinLevel)
+		fmt.Printf("%sName: %s%s\n   Danger level: %s\n   Exits: %s\n", marker, region.Name, here, colorize(fmt.Sprint(region.Danger), dangerColor(region.Danger)), strings.Join(region.Exits, ", "))
+		if region.Boss != "" {
+			if slices.Contains(cfg.Player.BossesSlain, region.Boss) {
+				fmt.Println("   Boss lair: its master is dead")
+			} else {
+				fmt.Printf("   Boss lair: requires level %d\n", region.MinLevel)
+			}
 		}
 	}
 	return nil
@@ -253,14 +255,17 @@ func commandCharacter(cfg *Config, args []string) error {
 }
 
 func commandInspect(cfg *Config, args []string) error {
-	if len(args) != 1 {
+	if len(args) == 0 {
 		return errors.New("usage: inspect <monster>")
 	}
 
-	monsterName := args[0]
+	monsterName := toSlug(args)
 	monster, err := cfg.Client.GetMonster(monsterName)
+	if errors.Is(err, open5e.ErrNotFound) {
+		return fmt.Errorf("no monster called %q, try 'bestiary' to find its slug", monsterName)
+	}
 	if err != nil {
-		return fmt.Errorf("issue while finding the monster %q: %w", monsterName, err)
+		return fmt.Errorf("inspecting %q: %w", monsterName, err)
 	}
 
 	fmt.Printf("Name: %s\nHP: %d\nArmor Class: %d\nChallenge Rating: %s\nActions:\n", monster.Name, monster.HP, monster.ArmorClass, monster.ChallengeRating)
@@ -274,11 +279,11 @@ func commandTravel(cfg *Config, args []string) error {
 	if cfg.CurrentFoe != nil {
 		return fmt.Errorf("you can't leave while fighting %s, fight or flee", cfg.CurrentFoe.Name)
 	}
-	if len(args) != 1 {
+	if len(args) == 0 {
 		return errors.New("usage: travel <region>")
 	}
 
-	destID := args[0]
+	destID := toSlug(args)
 	region, ok := world.FindRegionByID(cfg.World, destID)
 	if !ok {
 		return fmt.Errorf("this region ID is not found: %q", destID)
@@ -288,7 +293,10 @@ func commandTravel(cfg *Config, args []string) error {
 		return errors.New("you are already in this region")
 	}
 
-	currentRegion, _ := world.FindRegionByID(cfg.World, cfg.IDCurrentRegion)
+	currentRegion, ok := world.FindRegionByID(cfg.World, cfg.IDCurrentRegion)
+	if !ok {
+		return fmt.Errorf("current region %q not found", cfg.IDCurrentRegion)
+	}
 	if !slices.Contains(currentRegion.Exits, destID) {
 		return fmt.Errorf("you can't reach %s from %s", destID, currentRegion.Name)
 	}
@@ -326,20 +334,20 @@ func commandLook(cfg *Config, args []string) error {
 	var dangerWarning string
 	region, ok := world.FindRegionByID(cfg.World, cfg.IDCurrentRegion)
 	if !ok {
-		return errors.New("not found the current region")
+		return fmt.Errorf("current region %q not found", cfg.IDCurrentRegion)
 	}
 
 	switch region.Danger {
 	case 1:
 		dangerWarning = "The air feels calm"
 	case 2:
-		dangerWarning = "Something watching me"
+		dangerWarning = "Something is watching you"
 	case 3:
-		dangerWarning = "The smell of blood keep floating in the air"
+		dangerWarning = "The smell of blood hangs in the air"
 	case 4:
 		dangerWarning = "Death lingers here"
 	default:
-		dangerWarning = "This place belong to the void, a place known to no one, yet it seems like I remember this place... A place where time and space belong to these creatures lurking in the void, where no living beings has ever set foot on this land."
+		dangerWarning = "This place belongs to the void. No living being has ever come back from it"
 	}
 	fmt.Printf("Name: %s\nDescription: %s\nExits: %s\nDanger: %s\n", region.Name, region.Description, strings.Join(region.Exits, ", "), colorize(dangerWarning, dangerColor(region.Danger)))
 	return nil
@@ -351,7 +359,7 @@ func commandExplore(cfg *Config, args []string) error {
 	}
 	region, ok := world.FindRegionByID(cfg.World, cfg.IDCurrentRegion)
 	if !ok {
-		return errors.New("not found the current region")
+		return fmt.Errorf("current region %q not found", cfg.IDCurrentRegion)
 	}
 	if region.Boss != "" {
 		return encounterBoss(cfg, region)
@@ -362,7 +370,7 @@ func commandExplore(cfg *Config, args []string) error {
 	if err := spawnFoe(cfg, region); err != nil {
 		return err
 	}
-	fmt.Printf("A %s emerges from the shadow! (HP %d, Armor class %d)\nType 'fight' to attack or 'flee' to run.\n", cfg.CurrentFoe.Name, cfg.CurrentFoe.HP, cfg.CurrentFoe.ArmorClass)
+	fmt.Printf("%s emerges from the shadows! (HP %d, Armor class %d)\nType 'fight' to attack or 'flee' to run.\n", capitalize(withArticle(cfg.CurrentFoe.Name)), cfg.CurrentFoe.HP, cfg.CurrentFoe.ArmorClass)
 	return nil
 }
 
@@ -393,17 +401,20 @@ func commandEquip(cfg *Config, args []string) error {
 	if cfg.CurrentFoe != nil {
 		return fmt.Errorf("you can't equip while fighting %s, fight or flee", cfg.CurrentFoe.Name)
 	}
-	if len(args) != 1 {
+	if len(args) == 0 {
 		return errors.New("usage: equip <weapon>")
 	}
 
 	p := cfg.Player
-	slug := args[0]
+	slug := toSlug(args)
+	if p.Weapon.Slug == slug {
+		return fmt.Errorf("you already wield your %s", p.Weapon.Name)
+	}
 
 	for i, weapon := range p.Inventory {
 		if weapon.Slug == slug {
 			p.Weapon, p.Inventory[i] = p.Inventory[i], p.Weapon
-			fmt.Printf("You now wield a %s (%s).\n", p.Weapon.Name, p.Weapon.DamageDice)
+			fmt.Printf("You now wield %s (%s).\n", withArticle(p.Weapon.Name), p.Weapon.DamageDice)
 			return nil
 		}
 	}
@@ -436,7 +447,7 @@ func commandLoot(cfg *Config, args []string) error {
 		DamageBonus: 0,
 	}
 	cfg.Player.Inventory = append(cfg.Player.Inventory, loot)
-	fmt.Printf("You found a %s (%s)! Type 'equip %s' to wield it.\n", loot.Name, loot.DamageDice, loot.Slug)
+	fmt.Printf("You found %s (%s)! Type 'equip %s' to wield it.\n", withArticle(loot.Name), loot.DamageDice, loot.Slug)
 	return nil
 }
 
@@ -469,15 +480,10 @@ func commandFight(cfg *Config, args []string) error {
 }
 
 func winFight(cfg *Config) {
-	region, ok := world.FindRegionByID(cfg.World, cfg.IDCurrentRegion)
-	isBoss := ok && region.Boss != "" && region.Boss == cfg.CurrentFoe.Slug
+	region, isBoss := currentBossRegion(cfg)
 
 	reward := cfg.Player.Win(cfg.CurrentFoe)
-	if isBoss {
-		fmt.Printf("%s falls!\n", cfg.CurrentFoe.Name)
-	} else {
-		fmt.Printf("The %s falls!\n", cfg.CurrentFoe.Name)
-	}
+	fmt.Printf("%s falls!\n", capitalize(foeName(cfg)))
 	fmt.Printf("You gained %d XP and %d gold.\n", reward.XP, reward.Gold)
 	if reward.LevelsGained >= 1 {
 		fmt.Printf("Level up! You are now level %d.\n", cfg.Player.Level)
@@ -497,7 +503,7 @@ func monsterTurn(cfg *Config) error {
 		return fmt.Errorf("monster attack: %w", err)
 	}
 	if monsterDamage.ActionName == "" {
-		fmt.Printf("The %s hesitates and does nothing.\n", cfg.CurrentFoe.Name)
+		fmt.Printf("%s hesitates and does nothing.\n", capitalize(foeName(cfg)))
 	} else if monsterDamage.Hit {
 		fmt.Printf("%s uses %s (%d vs %d): hit for %d damage.\n", cfg.CurrentFoe.Name, monsterDamage.ActionName, monsterDamage.Roll, cfg.Player.ArmorClass, monsterDamage.Damage)
 	} else {
@@ -520,17 +526,15 @@ func monsterTurn(cfg *Config) error {
 }
 
 func commandCast(cfg *Config, args []string) error {
-	if len(args) != 1 {
+	if len(args) == 0 {
 		return errors.New("usage: cast <spell>")
 	}
-	index := -1
-	for i := range cfg.Player.Spells {
-		if cfg.Player.Spells[i].Slug == args[0] {
-			index = i
-		}
-	}
+	slug := toSlug(args)
+	index := slices.IndexFunc(cfg.Player.Spells, func(s game.Spell) bool {
+		return s.Slug == slug
+	})
 	if index == -1 {
-		return fmt.Errorf("you don't know %q", args[0])
+		return fmt.Errorf("you don't know %q", slug)
 	}
 
 	spell := &cfg.Player.Spells[index]
@@ -554,7 +558,7 @@ func commandCast(cfg *Config, args []string) error {
 		fmt.Printf("You cast %s and recover %d HP. %s\n", spell.Name, cfg.Player.HP-before, hpBar(cfg.Player.HP, cfg.Player.MaxHP, 10))
 	} else {
 		cfg.CurrentFoe.HP -= amount
-		fmt.Printf("You cast %s: the %s takes %d damage.\n", spell.Name, cfg.CurrentFoe.Name, amount)
+		fmt.Printf("You cast %s: %s takes %d damage.\n", spell.Name, foeName(cfg), amount)
 	}
 
 	if cfg.CurrentFoe == nil {
@@ -572,7 +576,6 @@ func commandCast(cfg *Config, args []string) error {
 	}
 	fmt.Printf("You: %s | %s: %s\n", hpBar(cfg.Player.HP, cfg.Player.MaxHP, 10), cfg.CurrentFoe.Name, hpBar(cfg.CurrentFoe.HP, cfg.CurrentFoeMaxHP, 10))
 	return nil
-
 }
 
 func commandFlee(cfg *Config, args []string) error {
@@ -581,7 +584,7 @@ func commandFlee(cfg *Config, args []string) error {
 	}
 	jet, success := game.TryFlee()
 	if success {
-		fmt.Printf("You escape from the %s (%d vs %d)!\n", cfg.CurrentFoe.Name, jet, game.FleeDC)
+		fmt.Printf("You escape from %s (%d vs %d)!\n", foeName(cfg), jet, game.FleeDC)
 		cfg.CurrentFoe = nil
 		return nil
 	}
@@ -605,60 +608,6 @@ func commandWeapons(cfg *Config, args []string) error {
 	for _, weapon := range weapons {
 		fmt.Printf("  %-25s %-20s %s\n", weapon.Slug, weapon.Name, weapon.DamageDice)
 	}
-	return nil
-}
-
-func commandSave(cfg *Config, args []string) error {
-	if cfg.CurrentFoe != nil {
-		return fmt.Errorf("you can't save while fighting %s", cfg.CurrentFoe.Name)
-	}
-	data := saveData{
-		IDCurrentRegion: cfg.IDCurrentRegion,
-		HasRested:       cfg.HasRested,
-		Player:          *cfg.Player,
-	}
-	bytes, err := json.MarshalIndent(data, "", "  ")
-	if err != nil {
-		return fmt.Errorf("encoding save: %w", err)
-	}
-
-	err = os.WriteFile(saveFile, bytes, 0644)
-	if err != nil {
-		return fmt.Errorf("writing save: %w", err)
-	}
-	fmt.Println("Game saved.")
-	return nil
-}
-
-func commandLoad(cfg *Config, args []string) error {
-	if cfg.CurrentFoe != nil {
-		return fmt.Errorf("you can't load while fighting %s", cfg.CurrentFoe.Name)
-	}
-	var data saveData
-	bytes, err := os.ReadFile(saveFile)
-	if errors.Is(err, fs.ErrNotExist) {
-		return errors.New("no save found")
-	} else if err != nil {
-		return fmt.Errorf("reading save: %w", err)
-	}
-	err = json.Unmarshal(bytes, &data)
-	if err != nil {
-		return fmt.Errorf("decoding save: %w", err)
-	}
-	region, ok := world.FindRegionByID(cfg.World, data.IDCurrentRegion)
-	if !ok {
-		return fmt.Errorf("save points to unknown region %q", data.IDCurrentRegion)
-	}
-	if data.Player.BestiaryKilled == nil {
-		data.Player.BestiaryKilled = make(map[string]int)
-	}
-	cfg.IDCurrentRegion = data.IDCurrentRegion
-	cfg.HasRested = data.HasRested
-	cfg.Player = &data.Player
-	cfg.CanLoot = false
-	cfg.CurrentFoe = nil
-	fmt.Printf("Game loaded. You are at %s.\n", region.Name)
-	warnPrefetch(prefetchFoes(cfg.Client, region))
 	return nil
 }
 

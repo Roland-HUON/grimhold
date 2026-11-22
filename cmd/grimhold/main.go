@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"time"
@@ -11,22 +12,25 @@ import (
 	"github.com/Roland-HUON/grimhold/internal/world"
 )
 
-const jsonPath = "internal/world/world.json"
-
 func main() {
-	gameWorld, err := world.CreateWorld(jsonPath)
+	continueGame := flag.Bool("continue", false, "load save.json at start instead of creating a new character")
+	flag.Parse()
+
+	gameWorld, err := world.Default()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 
 	client := open5e.NewClient(10*time.Second, 5*time.Minute)
-	player := game.NewPlayer()
+	defer client.Close()
+
 	cfg := &repl.Config{
 		World:           gameWorld,
 		IDCurrentRegion: gameWorld.Start,
 		Client:          client,
-		Player:          player,
+		Player:          game.NewPlayer(),
+		Continue:        *continueGame,
 	}
 	if err := repl.Start(cfg); err != nil {
 		fmt.Fprintln(os.Stderr, err)

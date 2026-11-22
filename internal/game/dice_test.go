@@ -29,12 +29,15 @@ func TestRollStaysInRange(t *testing.T) {
 }
 
 func TestRollRejectsInvalidFormulas(t *testing.T) {
-	invalid := []string{"", "abc", "d6", "2d", "0d6", "2d0", "-1d6", "xd6"}
+	invalid := []string{"", "abc", "d6", "2d", "0d6", "2d0", "-1d6", "xd6", "101d6", "1d101", "9999999999999d6"}
 
 	for _, formula := range invalid {
 		t.Run(formula, func(t *testing.T) {
 			if _, err := Roll(formula); err == nil {
 				t.Errorf("Roll(%q) should return an error", formula)
+			}
+			if err := ValidDice(formula); err == nil {
+				t.Errorf("ValidDice(%q) should return an error", formula)
 			}
 		})
 	}

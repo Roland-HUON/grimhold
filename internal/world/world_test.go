@@ -6,13 +6,24 @@ import (
 	"testing"
 )
 
-func TestCreateWorldWithRealFile(t *testing.T) {
-	w, err := CreateWorld("world.json")
+func TestDefaultWorld(t *testing.T) {
+	w, err := Default()
 	if err != nil {
-		t.Fatalf("the shipped world.json must be valid: %v", err)
+		t.Fatalf("the embedded world.json must be valid: %v", err)
 	}
 	if _, ok := FindRegionByID(w, w.Start); !ok {
 		t.Errorf("start region %q not found", w.Start)
+	}
+	for _, region := range w.Regions {
+		if len(region.Foes) == 0 && region.Boss == "" {
+			t.Errorf("region %q has neither foes nor boss", region.ID)
+		}
+	}
+}
+
+func TestCreateWorldFromFile(t *testing.T) {
+	if _, err := CreateWorld("world.json"); err != nil {
+		t.Fatalf("CreateWorld(world.json) = %v", err)
 	}
 }
 

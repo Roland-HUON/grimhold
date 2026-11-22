@@ -1,6 +1,7 @@
 package open5e
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
@@ -28,6 +29,7 @@ func TestGetPageDecodesAndCaches(t *testing.T) {
 	defer server.Close()
 
 	client := NewClient(time.Second, time.Minute)
+	defer client.Close()
 
 	page, err := client.GetPage(server.URL)
 	if err != nil {
@@ -54,12 +56,13 @@ func TestGetPageDecodesAndCaches(t *testing.T) {
 
 func TestGetPageErrors(t *testing.T) {
 	tests := []struct {
-		name    string
-		handler http.HandlerFunc
+		name         string
+		handler      http.HandlerFunc
+		wantNotFound bool
 	}{
-		{"not found", func(w http.ResponseWriter, r *http.Request) { http.NotFound(w, r) }},
-		{"server error", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusInternalServerError) }},
-		{"invalid JSON", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("{not json")) }},
+		{"not found", func(w http.ResponseWriter, r *http.Request) { http.NotFound(w, r) }, true},
+		{"server error", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusInternalServerError) }, false},
+		{"invalid JSON", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("{not json")) }, false},
 	}
 
 	for _, tt := range tests {
@@ -67,8 +70,15 @@ func TestGetPageErrors(t *testing.T) {
 			server := httptest.NewServer(tt.handler)
 			defer server.Close()
 
-			if _, err := NewClient(time.Second, time.Minute).GetPage(server.URL); err == nil {
-				t.Error("expected an error, got nil")
+			client := NewClient(time.Second, time.Minute)
+			defer client.Close()
+
+			_, err := client.GetPage(server.URL)
+			if err == nil {
+				t.Fatal("expected an error, got nil")
+			}
+			if got := errors.Is(err, ErrNotFound); got != tt.wantNotFound {
+				t.Errorf("errors.Is(err, ErrNotFound) = %v, want %v (err: %v)", got, tt.wantNotFound, err)
 			}
 		})
 	}

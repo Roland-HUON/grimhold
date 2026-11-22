@@ -8,16 +8,20 @@ import (
 )
 
 const (
-	ambushChance = 35
+	ambushChance       = 35
+	ambushMinHPPercent = 25
 )
 
 func tryAmbush(cfg *Config) bool {
 	if cfg.CurrentFoe != nil {
 		return false
 	}
+	if cfg.Player.HP*100 <= cfg.Player.MaxHP*ambushMinHPPercent {
+		return false
+	}
 	currentRegion, ok := world.FindRegionByID(cfg.World, cfg.IDCurrentRegion)
 	if !ok {
-		fmt.Println("Error: not found the current region")
+		fmt.Printf("Error: current region %q not found\n", cfg.IDCurrentRegion)
 		return false
 	}
 	if len(currentRegion.Foes) == 0 || currentRegion.Boss != "" {
@@ -30,7 +34,7 @@ func tryAmbush(cfg *Config) bool {
 		fmt.Println("Error:", err)
 		return true
 	}
-	fmt.Print(colorize(fmt.Sprintf("\nAmbush! A %s leaps out of the shadows!\n", cfg.CurrentFoe.Name), colorRed))
+	fmt.Print(colorize(fmt.Sprintf("\nAmbush! %s leaps out of the shadows!\n", capitalize(withArticle(cfg.CurrentFoe.Name))), colorRed))
 
 	if err := monsterTurn(cfg); err != nil {
 		fmt.Println("Error:", err)

@@ -1,10 +1,14 @@
 package world
 
 import (
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"os"
 )
+
+//go:embed world.json
+var defaultWorld []byte
 
 type Region struct {
 	ID          string   `json:"id"`
@@ -24,16 +28,22 @@ type World struct {
 	IndexRegion map[string]Region `json:"-"`
 }
 
+func Default() (World, error) {
+	return Parse(defaultWorld)
+}
+
 func CreateWorld(path string) (World, error) {
-	var configWorld World
-	newWorld, err := os.ReadFile(path)
-
+	data, err := os.ReadFile(path)
 	if err != nil {
-		return configWorld, fmt.Errorf("issues with the file: %w", err)
+		return World{}, fmt.Errorf("reading world file: %w", err)
 	}
+	return Parse(data)
+}
 
-	if err := json.Unmarshal(newWorld, &configWorld); err != nil {
-		return configWorld, fmt.Errorf("error JSON format: %w", err)
+func Parse(data []byte) (World, error) {
+	var configWorld World
+	if err := json.Unmarshal(data, &configWorld); err != nil {
+		return configWorld, fmt.Errorf("decoding world: %w", err)
 	}
 
 	configWorld.IndexRegion = make(map[string]Region, len(configWorld.Regions))
@@ -42,7 +52,7 @@ func CreateWorld(path string) (World, error) {
 	}
 
 	if _, ok := configWorld.IndexRegion[configWorld.Start]; !ok {
-		return configWorld, fmt.Errorf("error with the starting region : %q", configWorld.Start)
+		return configWorld, fmt.Errorf("unknown starting region %q", configWorld.Start)
 	}
 
 	for _, region := range configWorld.Regions {

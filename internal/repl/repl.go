@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"slices"
 	"strings"
@@ -18,13 +19,21 @@ var starterSpells = []string{"fire-bolt", "ray-of-frost", "thunderwave", "burnin
 const (
 	spellsToChoose = 2
 	ambushEvery    = 20 * time.Second
+	maxLineSize    = 4096
 )
 
+var errLineTooLong = fmt.Errorf("line too long (max %d characters), ignored", maxLineSize)
+
+type input struct {
+	line string
+	err  error
+}
+
 func Start(cfg *Config) error {
-	scanner := bufio.NewScanner(os.Stdin)
+	reader := bufio.NewReader(os.Stdin)
 	commands := getCommands()
 
-	if !chooseSpells(cfg, scanner) {
+	if !startGame(cfg, reader) {
 		fmt.Println("Bye!")
 		return nil
 	}
@@ -32,13 +41,8 @@ func Start(cfg *Config) error {
 		warnPrefetch(prefetchFoes(cfg.Client, start))
 	}
 
-	lines := make(chan string)
-	go func() {
-		for scanner.Scan() {
-			lines <- scanner.Text()
-		}
-		close(lines)
-	}()
+	lines := make(chan input)
+	go readLines(reader, lines)
 
 	ticker := time.NewTicker(ambushEvery)
 	defer ticker.Stop()
@@ -46,15 +50,18 @@ func Start(cfg *Config) error {
 	fmt.Print("grimhold > ")
 	for {
 		select {
-		case line, ok := <-lines:
+		case in, ok := <-lines:
 			if !ok {
 				fmt.Println("Bye!")
 				return nil
 			}
-			if handleLine(cfg, commands, line) {
+			if in.err != nil {
+				fmt.Println("Error:", in.err)
+			} else if handleLine(cfg, commands, in.line) {
 				fmt.Println("Bye!")
 				return nil
 			}
+			ticker.Reset(ambushEvery)
 			fmt.Print("grimhold > ")
 
 		case <-ticker.C:
@@ -65,8 +72,52 @@ func Start(cfg *Config) error {
 	}
 }
 
+func readLines(reader *bufio.Reader, lines chan<- input) {
+	defer close(lines)
+	for {
+		line, err := readLine(reader)
+		if errors.Is(err, errLineTooLong) {
+			lines <- input{err: err}
+			continue
+		}
+		if err != nil {
+			if !errors.Is(err, io.EOF) {
+				fmt.Println("Error: reading input:", err)
+			}
+			return
+		}
+		lines <- input{line: line}
+	}
+}
+
+func readLine(reader *bufio.Reader) (string, error) {
+	var line []byte
+	tooLong := false
+	for {
+		chunk, isPrefix, err := reader.ReadLine()
+		if err != nil {
+			if errors.Is(err, io.EOF) && len(line) > 0 {
+				break
+			}
+			return "", err
+		}
+		if len(line)+len(chunk) > maxLineSize {
+			tooLong = true
+		} else {
+			line = append(line, chunk...)
+		}
+		if !isPrefix {
+			break
+		}
+	}
+	if tooLong {
+		return "", errLineTooLong
+	}
+	return string(line), nil
+}
+
 func handleLine(cfg *Config, commands map[string]cliCommand, line string) bool {
-	args := strings.Fields(line)
+	args := strings.Fields(strings.ToLower(line))
 	if len(args) == 0 {
 		return false
 	}
@@ -76,7 +127,7 @@ func handleLine(cfg *Config, commands map[string]cliCommand, line string) bool {
 		fmt.Printf("Unknown command %q. Type 'help' for any help.\n", args[0])
 		return false
 	}
-	if err := cmd.Callback(cfg, args[1:]); err != nil {
+	if err := cmd.callback(cfg, args[1:]); err != nil {
 		if errors.Is(err, errExit) {
 			return true
 		}
@@ -85,18 +136,51 @@ func handleLine(cfg *Config, commands map[string]cliCommand, line string) bool {
 	return false
 }
 
-func chooseSpells(cfg *Config, scanner *bufio.Scanner) bool {
-	fmt.Printf("Choose %d spells:\n", spellsToChoose)
+func startGame(cfg *Config, reader *bufio.Reader) bool {
+	if cfg.Continue {
+		err := commandLoad(cfg, nil)
+		if err == nil {
+			return true
+		}
+		fmt.Println("Error:", err)
+		fmt.Println("Starting a new game instead.")
+	}
+	return chooseSpells(cfg, reader)
+}
+
+func chooseSpells(cfg *Config, reader *bufio.Reader) bool {
+	fmt.Printf("Choose %d spells (or type 'load' to continue your saved game, 'exit' to quit):\n", spellsToChoose)
 	for _, slug := range starterSpells {
 		fmt.Printf("  - %s\n", slug)
 	}
 
 	for len(cfg.Player.Spells) < spellsToChoose {
 		fmt.Printf("spell %d/%d > ", len(cfg.Player.Spells)+1, spellsToChoose)
-		if !scanner.Scan() {
+		line, err := readLine(reader)
+		if errors.Is(err, errLineTooLong) {
+			fmt.Println("Error:", err)
+			continue
+		}
+		if err != nil {
+			if !errors.Is(err, io.EOF) {
+				fmt.Println("Error: reading input:", err)
+			}
 			return false
 		}
-		choice := strings.ToLower(strings.TrimSpace(scanner.Text()))
+		choice := toSlug(strings.Fields(line))
+
+		switch choice {
+		case "":
+			continue
+		case "exit":
+			return false
+		case "load":
+			if err := commandLoad(cfg, nil); err != nil {
+				fmt.Println("Error:", err)
+				continue
+			}
+			return true
+		}
 
 		if !slices.Contains(starterSpells, choice) {
 			fmt.Printf("Unknown spell %q, pick one from the list.\n", choice)
@@ -124,4 +208,8 @@ func chooseSpells(cfg *Config, scanner *bufio.Scanner) bool {
 		fmt.Printf("You learned %s (%s).\n", spell.Name, spell.Dice)
 	}
 	return true
+}
+
+func toSlug(words []string) string {
+	return strings.ToLower(strings.Join(words, "-"))
 }
